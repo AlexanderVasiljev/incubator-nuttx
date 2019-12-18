@@ -218,4 +218,26 @@
 #define GPIO_USART1_RX GPIO_USART1_RX_1
 #define GPIO_USART1_TX GPIO_USART1_TX_2
 
+/* The STM32 F7 connects to a KSZ8081RNB1A PHY using these pins:
+ *
+ *   STM32 F7 BOARD        KSZ8081RNB1A
+ *   GPIO     SIGNAL       PIN NAME
+ *   -------- ------------ -------------
+ *   PG11     RMII_TX_EN   TXEN
+ *   PG13     RMII_TXD0    TXD0
+ *   PG14     RMII_TXD1    TXD1
+ *   PC4      RMII_RXD0    RXD0/MODE0
+ *   PC5      RMII_RXD1    RXD1/MODE1
+ *   PA7      RMII_CRS_DV  CRS_DV/MODE2
+ *   PC1      RMII_MDC     MDC
+ *   PA2      RMII_MDIO    MDIO
+ *   N/A      NRST         nRST
+ *   PA1      RMII_REF_CLK nINT/REFCLK0
+ *
+ */
+
+#define GPIO_ETH_RMII_TX_EN   GPIO_ETH_RMII_TX_EN_2
+#define GPIO_ETH_RMII_TXD0    GPIO_ETH_RMII_TXD0_2
+#define GPIO_ETH_RMII_TXD1    GPIO_ETH_RMII_TXD1_2
+
 #endif  /* __BOARDS_ARM_STM32F7_STM32F746_SOM_INCLUDE_BOARD_H */
