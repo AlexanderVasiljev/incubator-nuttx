@@ -78,7 +78,7 @@ int board_app_initialize(uintptr_t arg)
 #ifndef CONFIG_BOARD_LATE_INITIALIZE
   /* Perform board-specific initialization */
 
-  return stm32_bringup();
+  return OK;
 #else
   return OK;
 #endif

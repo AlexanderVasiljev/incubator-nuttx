@@ -2155,6 +2155,7 @@ config ARCH_BOARD
 	default "stm32f769i-disco"         if ARCH_BOARD_STM32F769I_DISCO
 	default "stm32h747i-disco"         if ARCH_BOARD_STM32H747I_DISCO
 	default "stm32f746-ws"             if ARCH_BOARD_STM32F746_WS
+	default "stm32f746-som"            if ARCH_BOARD_STM32F746_SOM
 	default "b-l072z-lrwan1"           if ARCH_BOARD_B_L072Z_LRWAN1
 	default "b-l475e-iot01a"           if ARCH_BOARD_B_L475E_IOT01A
 	default "stm32l476vg-disco"        if ARCH_BOARD_STM32L476VG_DISCO
@@ -2476,6 +2477,9 @@ source "boards/arm/stm32f7/nucleo-144/Kconfig"
 endif
 if ARCH_BOARD_STM32F746_WS
 source "boards/arm/stm32f7/stm32f746-ws/Kconfig"
+endif
+if ARCH_BOARD_STM32F746_SOM
+source "boards/arm/stm32f7/stm32f746-som/Kconfig"
 endif
 if ARCH_BOARD_STM32F746G_DISCO
 source "boards/arm/stm32f7/stm32f746g-disco/Kconfig"
