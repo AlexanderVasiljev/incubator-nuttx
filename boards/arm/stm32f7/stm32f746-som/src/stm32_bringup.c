@@ -1,7 +1,7 @@
 /****************************************************************************
- * boards/arm/stm32f7/stm32f746-som/src/stm32_appinitilaize.c
+ * boards/arm/stm32f7/stm32f476g-disco/src/stm32_bringup.c
  *
- *   Copyright (C) 2015-2016 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2017 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -38,50 +38,69 @@
  ****************************************************************************/
 
 #include <nuttx/config.h>
-#include <sys/types.h>
 
+#include <sys/types.h>
+#include <sys/mount.h>
+#include <syslog.h>
+#include <errno.h>
+#include <stdbool.h>
+#include <debug.h>
+
+#include "stm32_gpio.h"
 #include "stm32f746-som.h"
 
-#ifdef CONFIG_LIB_BOARDCTL
+#ifdef CONFIG_BUTTONS
+#  include <nuttx/input/buttons.h>
+#endif
+
+#ifdef CONFIG_VIDEO_FB
+#  include <nuttx/video/fb.h>
+#endif
 
 /****************************************************************************
  * Public Functions
  ****************************************************************************/
 
 /****************************************************************************
- * Name: board_app_initialize
+ * Name: stm32_bringup
  *
  * Description:
- *   Perform application specific initialization.  This function is never
- *   called directly from application code, but only indirectly via the
- *   (non-standard) boardctl() interface using the command BOARDIOC_INIT.
+ *   Perform architecture-specific initialization
  *
- * Input Parameters:
- *   arg - The boardctl() argument is passed to the board_app_initialize()
- *         implementation without modification.  The argument has no
- *         meaning to NuttX; the meaning of the argument is a contract
- *         between the board-specific initialization logic and the
- *         matching application logic.  The value cold be such things as a
- *         mode enumeration value, a set of DIP switch switch settings, a
- *         pointer to configuration data read from a file or serial FLASH,
- *         or whatever you would like to do with it.  Every implementation
- *         should accept zero/NULL as a default configuration.
+ *   CONFIG_BOARD_LATE_INITIALIZE=y :
+ *     Called from board_late_initialize().
  *
- * Returned Value:
- *   Zero (OK) is returned on success; a negated errno value is returned on
- *   any failure to indicate the nature of the failure.
+ *   CONFIG_BOARD_LATE_INITIALIZE=n && CONFIG_LIB_BOARDCTL=y :
+ *     Called from the NSH library
  *
  ****************************************************************************/
 
-int board_app_initialize(uintptr_t arg)
+int stm32_bringup(void)
 {
-#ifndef CONFIG_BOARD_LATE_INITIALIZE
-  /* Perform board-specific initialization */
+  int ret;
 
-  return stm32_bringup();
-#else
+#ifdef CONFIG_FS_PROCFS
+
+#ifdef CONFIG_STM32_CCM_PROCFS
+  /* Register the CCM procfs entry.  This must be done before the procfs is
+   * mounted.
+   */
+
+  (void)ccm_procfs_register();
+#endif
+
+  /* Mount the procfs file system */
+
+  ret = mount(NULL, STM32_PROCFS_MOUNTPOINT, "procfs", 0, NULL);
+  if (ret < 0)
+    {
+      syslog(LOG_ERR,
+             "ERROR: Failed to mount the PROC filesystem: %d (%d)\n",
+             ret, errno);
+      return ret;
+    }
+#endif
+
+  UNUSED(ret);  /* May not be used */
   return OK;
-#endif
 }
-
-#endif

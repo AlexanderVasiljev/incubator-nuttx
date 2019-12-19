@@ -44,6 +44,8 @@
 #include <nuttx/board.h>
 #include <arch/board/board.h>
 
+#include "stm32_gpio.h"
+
 #include "up_arch.h"
 #include "stm32f746-som.h"
 
@@ -75,6 +77,9 @@ void stm32_boardinitialize(void)
       stm32_spidev_initialize();
     }
 #endif
+
+  stm32_configgpio(GPIO_PHY_ENABLE);
+  stm32_gpiowrite(GPIO_PHY_ENABLE, false);
 }
 
 /****************************************************************************
@@ -99,7 +104,7 @@ void board_late_initialize(void)
    * but the initialization function must run in kernel space.
    */
 
-  (void)board_app_initialize();
+  (void)stm32_bringup();
 #endif
 }
 #endif
