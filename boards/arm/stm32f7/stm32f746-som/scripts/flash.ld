@@ -74,6 +74,7 @@ MEMORY
   dtcm  (rwx) : ORIGIN = 0x20000000, LENGTH = 64K
   sram1 (rwx) : ORIGIN = 0x20010000, LENGTH = 240K
   sram2 (rwx) : ORIGIN = 0x2004c000, LENGTH = 16K
+  sdram (rwx) : ORIGIN = 0xC0000000, LENGTH = 32768K
 }
 
 OUTPUT_ARCH(arm)

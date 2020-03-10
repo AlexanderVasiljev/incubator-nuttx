@@ -80,6 +80,10 @@ void stm32_boardinitialize(void)
 
   stm32_configgpio(GPIO_PHY_ENABLE);
   stm32_gpiowrite(GPIO_PHY_ENABLE, false);
+
+#ifdef CONFIG_STM32F7_FMC
+  stm32_enablefmc();
+#endif
 }
 
 /****************************************************************************

@@ -47,4 +47,17 @@
 
 int stm32_bringup(void);
 
+/****************************************************************************
+
+ * Name: stm32_enablefmc
+ *
+ * Description:
+ *  enable clocking to the FMC module
+ *
+ ****************************************************************************/
+
+#ifdef CONFIG_STM32F7_FMC
+void stm32_enablefmc(void);
+#endif
+
 #endif /* __BOARDS_ARM_STM32F746_SOM_SRC_STM32F746_WS_H */

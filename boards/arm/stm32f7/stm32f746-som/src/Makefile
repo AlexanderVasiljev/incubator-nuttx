@@ -50,4 +50,8 @@ ifeq ($(CONFIG_STM32F7_SDMMC1),y)
 CSRCS += stm32_sdmmc.c
 endif
 
+ifeq ($(CONFIG_STM32F7_FMC),y)
+CSRCS += stm32_extmem.c
+endif
+
 include $(TOPDIR)/boards/Board.mk
