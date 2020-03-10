@@ -33,7 +33,7 @@
  *
  ****************************************************************************/
 
-/* This file should never be included directed but, rather, only indirectly
+/* This file should never be included directly but, rather, only indirectly
  * through include/syscall.h or include/sys/sycall.h
  */
 
@@ -74,7 +74,7 @@
 /* sys_call macros **********************************************************/
 /* System calls with 3 parameters and fewer are handled by sys_call0
  * (sys_call1, sys_call2, and sys_call3 are aliases for sys_call0).
- * This is because the parmeters are passed in a0-a3.  a0 is reserved for
+ * This is because the parameters are passed in a0-a3.  a0 is reserved for
  * the syscall number leaving up to three additional parameters that can be
  * passed in registers.  The remainder would have to be pushed onto the stack.
  *
@@ -159,7 +159,7 @@
 
 #define SYS_restore_context (1)
 #define up_fullcontextrestore(restoreregs) \
-  (void)sys_call1(SYS_restore_context, (uintptr_t)restoreregs)
+  sys_call1(SYS_restore_context, (uintptr_t)restoreregs)
 
 /* SYS call 2:
  *
@@ -168,7 +168,7 @@
 
 #define SYS_switch_context (2)
 #define up_switchcontext(saveregs, restoreregs) \
-  (void)sys_call2(SYS_switch_context, (uintptr_t)saveregs, (uintptr_t)restoreregs)
+  sys_call2(SYS_switch_context, (uintptr_t)saveregs, (uintptr_t)restoreregs)
 
 #ifdef CONFIG_BUILD_KERNEL
 /* SYS call 3:
@@ -256,4 +256,3 @@ uintptr_t sys_call3(unsigned int nbr, uintptr_t parm1, uintptr_t parm2,
 
 #endif /* __ASSEMBLY__ */
 #endif /* __ARCH_MIPS_INCLUDE_MIPS32_SYSCALL_H */
-

@@ -43,7 +43,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <unistd.h>
-#include <semaphore.h>
 #include <string.h>
 #include <errno.h>
 #include <debug.h>
@@ -749,6 +748,8 @@ static bool efm32_txempty(struct uart_dev_s *dev)
  * Public Functions
  ****************************************************************************/
 
+#ifdef USE_EARLYSERIALINIT
+
 /****************************************************************************
  * Name: up_earlyserialinit
  *
@@ -779,6 +780,7 @@ void up_earlyserialinit(void)
   efm32_setup(&CONSOLE_DEV);
 #endif
 }
+#endif
 
 /****************************************************************************
  * Name: up_serialinit
@@ -794,14 +796,14 @@ void up_serialinit(void)
   /* Register the console */
 
 #ifdef CONSOLE_DEV
-  (void)uart_register("/dev/console", &CONSOLE_DEV);
+  uart_register("/dev/console", &CONSOLE_DEV);
 #endif
 
   /* Register all UARTs */
 
-  (void)uart_register("/dev/ttyLE0", &TTYLE0_DEV);
+  uart_register("/dev/ttyLE0", &TTYLE0_DEV);
 #ifdef TTYLE1_DEV
-  (void)uart_register("/dev/ttyLE1", &TTYLE1_DEV);
+  uart_register("/dev/ttyLE1", &TTYLE1_DEV);
 #endif
 }
 

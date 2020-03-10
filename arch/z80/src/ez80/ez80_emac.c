@@ -1,7 +1,7 @@
 /****************************************************************************
  * arch/z80/src/ez80/ez80_emac.c
  *
- *   Copyright (C) 2009-2010, 2012, 2014-2018 Gregory Nutt. All rights
+ *   Copyright (C) 2009-2010, 2012, 2014-2018, 2020 Gregory Nutt. All rights
  *     reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
@@ -96,9 +96,14 @@
 
 #define ETHWORK LPWORK
 
-#ifndef CONFIG_EZ80_RAMADDR
-#  define CONFIG_EZ80_RAMADDR EZ80_EMACSRAM
-#endif
+/* The eZ80F92 has 16Kb of SRAM.  The base address of the SRAM is setup by
+ * the eZ80 start-up logic by setting the RAM_ADDR_U register to the upper
+ * 8 bits of the 24-bit address.  The EMAC RAM is at an offset of 0x00c000
+ * into that region.
+ */
+
+extern uintptr_t __RAM_ADDR_U_INIT_PARAM;
+#define ETH_RAMADDR ((uintptr_t)&__RAM_ADDR_U_INIT_PARAM << 16) + 0x00c000
 
 #if CONFIG_NET_ETH_PKTSIZE > 1518
 #  error "MAXF size too big for this device"
@@ -222,7 +227,8 @@
    *   this bit is cleared by software.
    */
 
-#define EMAC_ISTAT_SYSEVENTS   (EMAC_ISTAT_TXFSMERR|EMAC_ISTAT_MGTDONE|EMAC_ISTAT_RXOVR)
+#define EMAC_ISTAT_SYSEVENTS \
+  (EMAC_ISTAT_TXFSMERR | EMAC_ISTAT_MGTDONE | EMAC_ISTAT_RXOVR)
 
   /* EMAC Tx interrupts:
    *
@@ -232,7 +238,7 @@
    *   Denotes when control frame transmission is complete.
    */
 
-#define EMAC_ISTAT_TXEVENTS    (EMAC_ISTAT_TXDONE|EMAC_ISTAT_TXCF)
+#define EMAC_ISTAT_TXEVENTS    (EMAC_ISTAT_TXDONE | EMAC_ISTAT_TXCF)
 
   /* EMAC Rx interrupts:
    *
@@ -244,8 +250,10 @@
    *   Denotes when control frame reception is complete.
    */
 
-#define EMAC_ISTAT_RXEVENTS    (EMAC_ISTAT_RXDONE|EMAC_ISTAT_RXPCF|EMAC_ISTAT_RXCF)
-#define EMAC_EIN_HANDLED       (EMAC_ISTAT_RXEVENTS|EMAC_ISTAT_TXEVENTS|EMAC_ISTAT_SYSEVENTS)
+#define EMAC_ISTAT_RXEVENTS \
+  (EMAC_ISTAT_RXDONE | EMAC_ISTAT_RXPCF | EMAC_ISTAT_RXCF)
+#define EMAC_EIN_HANDLED \
+  (EMAC_ISTAT_RXEVENTS | EMAC_ISTAT_TXEVENTS | EMAC_ISTAT_SYSEVENTS)
 
 /* TX poll deley = 1 seconds. CLK_TCK is the number of clock ticks per second */
 
@@ -307,12 +315,13 @@ struct ez80emac_driver_s
    *            Tx/Rx memory).
    * txhead:    Points to the oldest Tx descriptor queued for output (but for
    *            which output has not yet completed.  Initialized to NULL; set
-   *            by ez80emac_transmit() when Tx is started and by ez80emac_txinterrupt()
-   *            when Tx processing completes.  txhead == NULL is also a sure
+   *            by ez80emac_transmit() when Tx is started and by
+   *            ez80emac_txinterrupt() when Tx processing completes.  txhead ==
+   *            NULL is also a sure
    *            indication that there is no Tx in progress.
-   * txnext:    Points to the next free Tx descriptor. Initialized to txstart; set
-   *            when ez80emac_transmit() adds the descriptor; reset to txstart when the
-   *            last Tx packet is sent.
+   * txnext:    Points to the next free Tx descriptor. Initialized to txstart;
+   *            set when ez80emac_transmit() adds the descriptor; reset to
+   *            txstart when the last Tx packet is sent.
    */
 
   FAR struct ez80emac_desc_s *txstart;
@@ -376,11 +385,12 @@ static struct ez80emac_driver_s g_emac;
 /* MII logic */
 
 static void ez80emac_waitmiibusy(void);
-static void ez80emac_miiwrite(FAR struct ez80emac_driver_s *priv, uint8_t offset,
-              uint16_t value);
-static uint16_t ez80emac_miiread(FAR struct ez80emac_driver_s *priv, uint32_t offset);
-static bool ez80emac_miipoll(FAR struct ez80emac_driver_s *priv, uint32_t offset,
-              uint16_t bits, bool bclear);
+static void ez80emac_miiwrite(FAR struct ez80emac_driver_s *priv,
+              uint8_t offset, uint16_t value);
+static uint16_t ez80emac_miiread(FAR struct ez80emac_driver_s *priv,
+              uint32_t offset);
+static bool ez80emac_miipoll(FAR struct ez80emac_driver_s *priv,
+              uint32_t offset, uint16_t bits, bool bclear);
 static int  ez80emac_miiconfigure(FAR struct ez80emac_driver_s *priv);
 
 /* Multi-cast filtering */
@@ -401,13 +411,16 @@ static int  ez80emac_receive(struct ez80emac_driver_s *priv);
 /* Interrupt handling */
 
 static void ez80emac_txinterrupt_work(FAR void *arg);
-static int  ez80emac_txinterrupt(int irq, FAR void *context, FAR void *arg);
+static int  ez80emac_txinterrupt(int irq, FAR void *context,
+              FAR void *arg);
 
 static void ez80emac_rxinterrupt_work(FAR void *arg);
-static int  ez80emac_rxinterrupt(int irq, FAR void *context, FAR void *arg);
+static int  ez80emac_rxinterrupt(int irq, FAR void *context,
+              FAR void *arg);
 
 static void ez80emac_sysinterrupt_work(FAR void *arg);
-static int  ez80emac_sysinterrupt(int irq, FAR void *context, FAR void *arg);
+static int  ez80emac_sysinterrupt(int irq, FAR void *context,
+              FAR void *arg);
 
 /* Watchdog timer expirations */
 
@@ -426,8 +439,10 @@ static void ez80emac_txavail_work(FAR void *arg);
 static int  ez80emac_txavail(struct net_driver_s *dev);
 
 #ifdef CONFIG_NET_MCASTGROUP
-static int ez80emac_addmac(struct net_driver_s *dev, FAR const uint8_t *mac);
-static int ez80emac_rmmac(struct net_driver_s *dev, FAR const uint8_t *mac);
+static int ez80emac_addmac(struct net_driver_s *dev,
+             FAR const uint8_t *mac);
+static int ez80emac_rmmac(struct net_driver_s *dev,
+             FAR const uint8_t *mac);
 #endif
 
 /* Initialization */
@@ -475,7 +490,8 @@ static void ez80emac_waitmiibusy(void)
  *
  ****************************************************************************/
 
-static void ez80emac_miiwrite(FAR struct ez80emac_driver_s *priv, uint8_t offset, uint16_t value)
+static void ez80emac_miiwrite(FAR struct ez80emac_driver_s *priv,
+                              uint8_t offset, uint16_t value)
 {
   uint8_t regval;
 
@@ -495,7 +511,7 @@ static void ez80emac_miiwrite(FAR struct ez80emac_driver_s *priv, uint8_t offset
 
   /* Send control data to  PHY */
 
-  regval = inp(EZ80_EMAC_MIIMGT);
+  regval  = inp(EZ80_EMAC_MIIMGT);
   regval |= EMAC_MIIMGMT_LCTLD;
   outp(EZ80_EMAC_MIIMGT, regval);
 }
@@ -530,7 +546,7 @@ static uint16_t ez80emac_miiread(FAR struct ez80emac_driver_s *priv, uint32_t of
 
   /* Read status from PHY */
 
-  regval = inp(EZ80_EMAC_MIIMGT);
+  regval  = inp(EZ80_EMAC_MIIMGT);
   regval |= EMAC_MIIMGMT_RSTAT;
   outp(EZ80_EMAC_MIIMGT, regval);
 
@@ -572,7 +588,7 @@ static bool ez80emac_miipoll(FAR struct ez80emac_driver_s *priv, uint32_t offset
         {
           if ((value & bits) == 0)
             {
-               return true;
+              return true;
             }
         }
       else
@@ -583,6 +599,7 @@ static bool ez80emac_miipoll(FAR struct ez80emac_driver_s *priv, uint32_t offset
             }
         }
     }
+
   return false;
 }
 
@@ -618,7 +635,8 @@ static int ez80emac_miiconfigure(FAR struct ez80emac_driver_s *priv)
   phyval = ez80emac_miiread(priv, MII_PHYID1);
   if (phyval != MII_PHYID1_AM79C874)
     {
-      nerr("ERROR: Not an Am79c874 PHY: PHY1=%04x vs %04x\n", phyval, MII_PHYID1_AM79C874);
+      nerr("ERROR: Not an Am79c874 PHY: PHY1=%04x vs %04x\n",
+           phyval, MII_PHYID1_AM79C874);
       ret = -ENODEV;
       goto dumpregs;
     }
@@ -626,7 +644,8 @@ static int ez80emac_miiconfigure(FAR struct ez80emac_driver_s *priv)
   phyval = ez80emac_miiread(priv, MII_PHYID2);
   if (phyval != MII_PHYID2_AM79C874)
     {
-      nerr("ERROR: Not an Am79c874 PHY: PHY2=%04x vs %04x\n", phyval, MII_PHYID2_AM79C874);
+      nerr("ERROR: Not an Am79c874 PHY: PHY2=%04x vs %04x\n",
+           phyval, MII_PHYID2_AM79C874);
       ret = -ENODEV;
       goto dumpregs;
     }
@@ -651,19 +670,18 @@ static int ez80emac_miiconfigure(FAR struct ez80emac_driver_s *priv)
        * CRCEN - Append CRC to every frame regardless of padding options.
        */
 
-      outp(EZ80_EMAC_CFG1, EMAC_CFG1_PADEN|EMAC_CFG1_CRCEN);
+      outp(EZ80_EMAC_CFG1, EMAC_CFG1_PADEN | EMAC_CFG1_CRCEN);
     }
 
+#if CONFIG_EZ80_PHYCONFIG == EZ80_EMAC_AUTONEG
   /* Set the configured link capabilities */
 
-#if CONFIG_EZ80_PHYCONFIG == EZ80_EMAC_AUTONEG
-
-   ninfo("Configure autonegotiation\n");
-   if (bauto)
+  ninfo("Configure autonegotiation\n");
+  if (bauto)
     {
       ez80emac_miiwrite(priv, MII_ADVERTISE,
-                        MII_ADVERTISE_100BASETXFULL|MII_ADVERTISE_100BASETXHALF|
-                        MII_ADVERTISE_10BASETXFULL|MII_ADVERTISE_10BASETXHALF|
+                        MII_ADVERTISE_100BASETXFULL | MII_ADVERTISE_100BASETXHALF |
+                        MII_ADVERTISE_10BASETXFULL | MII_ADVERTISE_10BASETXHALF |
                         MII_ADVERTISE_CSMA);
     }
   else
@@ -676,8 +694,8 @@ static int ez80emac_miiconfigure(FAR struct ez80emac_driver_s *priv)
   ninfo("100BASETX full duplex\n");
   phyval |= MII_MCR_SPEED100 | MII_MCR_FULLDPLX;
   ez80emac_miiwrite(priv, MII_ADVERTISE,
-                    MII_ADVERTISE_100BASETXFULL|MII_ADVERTISE_100BASETXHALF|
-                    MII_ADVERTISE_10BASETXFULL|MII_ADVERTISE_10BASETXHALF|
+                    MII_ADVERTISE_100BASETXFULL | MII_ADVERTISE_100BASETXHALF |
+                    MII_ADVERTISE_10BASETXFULL | MII_ADVERTISE_10BASETXHALF |
                     MII_ADVERTISE_CSMA);
 
 #elif CONFIG_EZ80_PHYCONFIG == EZ80_EMAC_100BHD
@@ -685,21 +703,22 @@ static int ez80emac_miiconfigure(FAR struct ez80emac_driver_s *priv)
   ninfo("100BASETX half duplex\n");
   phyval |= MII_MCR_SPEED100;
   ez80emac_miiwrite(priv, MII_ADVERTISE,
-                    MII_ADVERTISE_100BASETXHALF|MII_ADVERTISE_10BASETXFULL|
-                    MII_ADVERTISE_10BASETXHALF|MII_ADVERTISE_CSMA);
+                    MII_ADVERTISE_100BASETXHALF | MII_ADVERTISE_10BASETXFULL |
+                    MII_ADVERTISE_10BASETXHALF | MII_ADVERTISE_CSMA);
 
 #elif CONFIG_EZ80_PHYCONFIG == EZ80_EMAC_10BFD
 
   ninfo("10BASETX full duplex\n");
   phyval |= MII_MCR_FULLDPLX;
   ez80emac_miiwrite(priv, MII_ADVERTISE,
-                    MII_ADVERTISE_10BASETXFULL|MII_ADVERTISE_10BASETXHALF|MII_ADVERTISE_CSMA);
+                    MII_ADVERTISE_10BASETXFULL | MII_ADVERTISE_10BASETXHALF |
+                    MII_ADVERTISE_CSMA);
 
 #elif CONFIG_EZ80_PHYCONFIG == EZ80_EMAC_10BHD
 
   ninfo("10BASETX half duplex\n");
   ez80emac_miiwrite(priv, MII_ADVERTISE,
-                    MII_ADVERTISE_10BASETXHALF|MII_ADVERTISE_CSMA);
+                    MII_ADVERTISE_10BASETXHALF | MII_ADVERTISE_CSMA);
 
 #else
 #  error "No recognized value of CONFIG_EZ80_PHYCONFIG"
@@ -716,6 +735,7 @@ static int ez80emac_miiconfigure(FAR struct ez80emac_driver_s *priv)
         {
            break;
         }
+
       up_mdelay(10);
     }
 
@@ -731,25 +751,36 @@ static int ez80emac_miiconfigure(FAR struct ez80emac_driver_s *priv)
       phyval = ez80emac_miiread(priv, MII_AM79C874_DIAGNOSTIC);
       if (phyval & AM79C874_DIAG_FULLDPLX)
         {
-          outp(EZ80_EMAC_CFG1, EMAC_CFG1_PADEN|EMAC_CFG1_CRCEN|EMAC_CFG1_FULLHD);
+          outp(EZ80_EMAC_CFG1, EMAC_CFG1_PADEN | EMAC_CFG1_CRCEN |
+                               EMAC_CFG1_FULLHD);
         }
       else
         {
-          outp(EZ80_EMAC_CFG1, EMAC_CFG1_PADEN|EMAC_CFG1_CRCEN);
+          outp(EZ80_EMAC_CFG1, EMAC_CFG1_PADEN | EMAC_CFG1_CRCEN);
         }
     }
 
 dumpregs:
-  ninfo("Am79c874 MII registers (FIAD=%lx)\n", CONFIG_EZ80_FIAD);
-  ninfo("  MII_MCR:         %04x\n", ez80emac_miiread(priv, MII_MCR));
-  ninfo("  MII_MSR:         %04x\n", ez80emac_miiread(priv, MII_MSR));
-  ninfo("  MII_PHYID1:      %04x\n", ez80emac_miiread(priv, MII_PHYID1));
-  ninfo("  MII_PHYID2:      %04x\n", ez80emac_miiread(priv, MII_PHYID2));
-  ninfo("  MII_ADVERTISE:   %04x\n", ez80emac_miiread(priv, MII_ADVERTISE));
-  ninfo("  MII_LPA:         %04x\n", ez80emac_miiread(priv, MII_LPA));
-  ninfo("  MII_EXPANSION:   %04x\n", ez80emac_miiread(priv, MII_EXPANSION));
-  ninfo("  MII_DIAGNOSTICS: %04x\n", ez80emac_miiread(priv, MII_AM79C874_DIAGNOSTIC));
-  ninfo("EMAC CFG1:         %02x\n", inp(EZ80_EMAC_CFG1));
+  ninfo("Am79c874 MII registers (FIAD=%lx)\n",
+        CONFIG_EZ80_FIAD);
+  ninfo("  MII_MCR:         %04x\n",
+        ez80emac_miiread(priv, MII_MCR));
+  ninfo("  MII_MSR:         %04x\n",
+        ez80emac_miiread(priv, MII_MSR));
+  ninfo("  MII_PHYID1:      %04x\n",
+        ez80emac_miiread(priv, MII_PHYID1));
+  ninfo("  MII_PHYID2:      %04x\n",
+        ez80emac_miiread(priv, MII_PHYID2));
+  ninfo("  MII_ADVERTISE:   %04x\n",
+        ez80emac_miiread(priv, MII_ADVERTISE));
+  ninfo("  MII_LPA:         %04x\n",
+        ez80emac_miiread(priv, MII_LPA));
+  ninfo("  MII_EXPANSION:   %04x\n",
+        ez80emac_miiread(priv, MII_EXPANSION));
+  ninfo("  MII_DIAGNOSTICS: %04x\n",
+        ez80emac_miiread(priv, MII_AM79C874_DIAGNOSTIC));
+  ninfo("EMAC CFG1:         %02x\n",
+        inp(EZ80_EMAC_CFG1));
   return ret;
 }
 #else
@@ -765,7 +796,8 @@ static int ez80emac_miiconfigure(FAR struct ez80emac_driver_s *priv)
   ez80emac_miiwrite(priv, MII_MCR, 0);
   ez80emac_miiwrite(priv,
            MII_MCR,
-           MII_MCR_ANENABLE | MII_MCR_ANRESTART | MII_MCR_FULLDPLX | MII_MCR_SPEED100);
+           MII_MCR_ANENABLE | MII_MCR_ANRESTART | MII_MCR_FULLDPLX |
+           MII_MCR_SPEED100);
 
   /* Wait for auto-negotiation to start */
 
@@ -813,7 +845,8 @@ static int ez80emac_miiconfigure(FAR struct ez80emac_driver_s *priv)
 
   /* Check for 100BASETX half duplex */
 
-  else if ((advertise & MII_ADVERTISE_100BASETXHALF) && (lpa & MII_LPA_100BASETXHALF))
+  else if ((advertise & MII_ADVERTISE_100BASETXHALF) &&
+           (lpa & MII_LPA_100BASETXHALF))
     {
       ninfo("100BASETX half duplex\n");
       regval            = inp(EZ80_EMAC_CFG1);
@@ -867,6 +900,7 @@ static int ez80emac_miiconfigure(FAR struct ez80emac_driver_s *priv)
     {
       mcr &= ~MII_MCR_FULLDPLX;
     }
+
   if (priv->b100mbs)
     {
       mcr |= MII_MCR_SPEED100;
@@ -875,6 +909,7 @@ static int ez80emac_miiconfigure(FAR struct ez80emac_driver_s *priv)
     {
       mcr &= ~MII_MCR_SPEED100;
     }
+
   mcr |= MII_MCR_ANENABLE;
   ez80emac_miiwrite(priv, MII_MCR, mcr);
 
@@ -1017,20 +1052,20 @@ static int ez80emac_transmit(struct ez80emac_driver_s *priv)
    * header plus the size of the data to be transferred, aligned up to the next
    * packet buffer size.  NOTE: that there is no check to see if we have
    * overran the EMAC buffer -- i.e., if the next txnext has not yet been
-   * tranmitted.
+   * transmitted.
    */
 
   txdesc = priv->txnext;
 
   len    = EMAC_PKTBUF_ALIGN(priv->dev.d_len + SIZEOF_EMACSDESC);
-  txnext = (FAR struct ez80emac_desc_s *)((uint8_t*)txdesc + len);
+  txnext = (FAR struct ez80emac_desc_s *)((uint8_t *)txdesc + len);
 
   /* Handle wraparound to the beginning of the TX region */
 
-  if ((uint8_t*)txnext + SIZEOF_EMACSDESC >= (uint8_t*)priv->rxstart)
+  if ((uint8_t *)txnext + SIZEOF_EMACSDESC >= (uint8_t *)priv->rxstart)
     {
       txnext = (FAR struct ez80emac_desc_s *)
-        ((uint8_t*)priv->txstart + ((uint8_t*)txnext - (uint8_t*)priv->rxstart));
+        ((uint8_t *)priv->txstart + ((uint8_t *)txnext - (uint8_t *)priv->rxstart));
     }
 
   priv->txnext    = txnext;
@@ -1041,8 +1076,8 @@ static int ez80emac_transmit(struct ez80emac_driver_s *priv)
   /* Copy the data to the next packet in the Tx buffer (handling wraparound) */
 
   psrc            = priv->dev.d_buf;
-  pdest           = (uint8_t*)txdesc + SIZEOF_EMACSDESC;
-  len             = (uint8_t*)priv->rxstart - pdest;
+  pdest           = (uint8_t *)txdesc + SIZEOF_EMACSDESC;
+  len             = (uint8_t *)priv->rxstart - pdest;
   if (len >= priv->dev.d_len)
     {
       /* The entire packet will fit into the EMAC SRAM without wrapping */
@@ -1072,7 +1107,7 @@ static int ez80emac_transmit(struct ez80emac_driver_s *priv)
   txdesc->pktsize = priv->dev.d_len;
   txdesc->stat    = EMAC_TXDESC_OWNER;
 
-  /* Enable the TX poll timer.  The poll timer may alread be running.  In that
+  /* Enable the TX poll timer.  The poll timer may already be running.  In that
    * case, this will force the hardware to poll again now
    */
 
@@ -1087,8 +1122,8 @@ static int ez80emac_transmit(struct ez80emac_driver_s *priv)
 
   /* Setup the TX timeout watchdog (perhaps restarting the timer) */
 
-  (void)wd_start(priv->txtimeout, EMAC_TXTIMEOUT,
-                 ez80emac_txtimeout_expiry, 1, (uint32_t)priv);
+  wd_start(priv->txtimeout, EMAC_TXTIMEOUT,
+           ez80emac_txtimeout_expiry, 1, (uint32_t)priv);
   return OK;
 }
 
@@ -1182,7 +1217,8 @@ static int ez80emac_txpoll(struct net_driver_s *dev)
 static inline FAR struct ez80emac_desc_s *ez80emac_rwp(void)
 {
   return (FAR struct ez80emac_desc_s *)
-    (CONFIG_EZ80_RAMADDR + ((uint24_t)inp(EZ80_EMAC_RWP_H) << 8) + (uint24_t)inp(EZ80_EMAC_RWP_L));
+    (ETH_RAMADDR +
+    ((uint24_t)inp(EZ80_EMAC_RWP_H) << 8) + (uint24_t)inp(EZ80_EMAC_RWP_L));
 }
 
 /****************************************************************************
@@ -1202,7 +1238,8 @@ static inline FAR struct ez80emac_desc_s *ez80emac_rwp(void)
 static inline FAR struct ez80emac_desc_s *ez80emac_rrp(void)
 {
   return (FAR struct ez80emac_desc_s *)
-    (CONFIG_EZ80_RAMADDR + ((uint24_t)inp(EZ80_EMAC_RRP_H) << 8) + (uint24_t)inp(EZ80_EMAC_RRP_L));
+    (ETH_RAMADDR +
+    ((uint24_t)inp(EZ80_EMAC_RRP_H) << 8) + (uint24_t)inp(EZ80_EMAC_RRP_L));
 }
 
 /****************************************************************************
@@ -1278,7 +1315,8 @@ static int ez80emac_receive(struct ez80emac_driver_s *priv)
 
       if (rxdesc->pktsize > CONFIG_NET_ETH_PKTSIZE)
         {
-          ninfo("Truncated oversize RX pkt: %d->%d\n", rxdesc->pktsize, CONFIG_NET_ETH_PKTSIZE);
+          ninfo("Truncated oversize RX pkt: %d->%d\n",
+                rxdesc->pktsize, CONFIG_NET_ETH_PKTSIZE);
           pktlen = CONFIG_NET_ETH_PKTSIZE;
         }
       else
@@ -1288,14 +1326,14 @@ static int ez80emac_receive(struct ez80emac_driver_s *priv)
 
       /* Copy the data data from the hardware to priv->dev.d_buf */
 
-      psrc  = (FAR uint8_t*)priv->rxnext + SIZEOF_EMACSDESC;
+      psrc  = (FAR uint8_t *)priv->rxnext + SIZEOF_EMACSDESC;
       pdest =  priv->dev.d_buf;
 
       /* Check for wraparound */
 
-     if ((FAR uint8_t*)(psrc + pktlen) > (FAR uint8_t*)priv->rxendp1)
+      if ((FAR uint8_t *)(psrc + pktlen) > (FAR uint8_t *)priv->rxendp1)
         {
-          int nbytes = (int)((FAR uint8_t*)priv->rxendp1 - (FAR uint8_t*)psrc);
+          int nbytes = (int)((FAR uint8_t *)priv->rxendp1 - (FAR uint8_t *)psrc);
           ninfo("RX wraps after %d bytes\n", nbytes + SIZEOF_EMACSDESC);
 
           memcpy(pdest, psrc, nbytes);
@@ -1324,8 +1362,8 @@ static int ez80emac_receive(struct ez80emac_driver_s *priv)
       rwp             = ez80emac_rwp();
 
       /* Update the RRP to match our rxnext pointer: "For the hardware flow control
-       * to function properly, the software must update the hardare RRP (EmacRrp)
-       * pointer whenever the software version is upated.  The RxDMA uses RWP
+       * to function properly, the software must update the hardware RRP (EmacRrp)
+       * pointer whenever the software version is updated.  The RxDMA uses RWP
        * and the RRP to determine how many packets remain in the Rx buffer.
        */
 
@@ -1389,7 +1427,7 @@ static int ez80emac_receive(struct ez80emac_driver_s *priv)
 #ifdef CONFIG_NET_IPv6
       if (ETHBUF->type == HTONS(ETHTYPE_IP6))
         {
-          ninfo("Iv6 frame\n");
+          ninfo("IPv6 frame\n");
 
           /* Give the IPv6 packet to the network layer */
 
@@ -1401,7 +1439,7 @@ static int ez80emac_receive(struct ez80emac_driver_s *priv)
            */
 
           if (priv->dev.d_len > 0)
-           {
+            {
               /* Update the Ethernet header with the correct MAC address */
 
 #ifdef CONFIG_NET_IPv4
@@ -1450,6 +1488,7 @@ static int ez80emac_receive(struct ez80emac_driver_s *priv)
 
       npackets++;
     }
+
   return npackets;
 }
 
@@ -1549,7 +1588,7 @@ static void ez80emac_txinterrupt_work(FAR void *arg)
 #if 0 // Seems to reset RWP as well ???
       priv->txnext = priv->txstart;
 
-      regval = inp(EZ80_EMAC_RST);
+      regval  = inp(EZ80_EMAC_RST);
       regval |= EMAC_RST_HRTFN;
       outp(EZ80_EMAC_RST, regval);
       regval &= ~EMAC_RST_HRTFN;
@@ -1662,7 +1701,7 @@ static void ez80emac_rxinterrupt_work(FAR void *arg)
 
   /* Process any RX packets pending the RX buffer */
 
-  (void)ez80emac_receive(priv);
+  ez80emac_receive(priv);
   net_unlock();
 
   /* Re-enable Ethernet Rx interrupts */
@@ -1755,9 +1794,11 @@ static void ez80emac_sysinterrupt_work(FAR void *arg)
 
   if ((istat & EMAC_ISTAT_TXFSMERR) != 0)
     {
-      nwarn("WARNING: Tx FSMERR txhead=%p {%06x, %u, %04x} trp=%02x%02x istat=%02x\n",
-           priv->txhead, priv->txhead->np, priv->txhead->pktsize, priv->txhead->stat,
-           inp(EZ80_EMAC_TRP_H), inp(EZ80_EMAC_TRP_L), istat);
+      nwarn("WARNING: Tx FSMERR txhead=%p {%06x, %u, %04x} trp=%02x%02x "
+            "istat=%02x\n",
+            priv->txhead, priv->txhead->np, priv->txhead->pktsize,
+            priv->txhead->stat, inp(EZ80_EMAC_TRP_H), inp(EZ80_EMAC_TRP_L),
+            istat);
 
       /* Increment statistics */
 
@@ -1771,8 +1812,10 @@ static void ez80emac_sysinterrupt_work(FAR void *arg)
 
   if ((istat & EMAC_ISTAT_RXOVR) != 0)
     {
-      nwarn("WARNING: Rx OVR rxnext=%p {%06x, %u, %04x} rrp=%02x%02x rwp=%02x%02x blkslft=%02x istat=%02x\n",
-           priv->rxnext, priv->rxnext->np, priv->rxnext->pktsize, priv->rxnext->stat,
+      nwarn("WARNING: Rx OVR rxnext=%p {%06x, %u, %04x} "
+            "rrp=%02x%02x rwp=%02x%02x blkslft=%02x istat=%02x\n",
+           priv->rxnext, priv->rxnext->np, priv->rxnext->pktsize,
+           priv->rxnext->stat,
            inp(EZ80_EMAC_RRP_H), inp(EZ80_EMAC_RRP_L),
            inp(EZ80_EMAC_RWP_H), inp(EZ80_EMAC_RWP_L),
            inp(EZ80_EMAC_BLKSLFT_H), inp(EZ80_EMAC_BLKSLFT_L),
@@ -1865,7 +1908,7 @@ static void ez80emac_txtimeout_work(FAR void *arg)
 
   /* Then poll the network for new XMIT data */
 
-  (void)devif_poll(&priv->dev, ez80emac_txpoll);
+  devif_poll(&priv->dev, ez80emac_txpoll);
   net_unlock();
 }
 
@@ -1928,11 +1971,11 @@ static void ez80emac_poll_work(FAR void *arg)
   /* Poll the network for new XMIT data */
 
   net_lock();
-  (void)devif_timer(&priv->dev, ez80emac_txpoll);
+  devif_timer(&priv->dev, EMAC_WDDELAY, ez80emac_txpoll);
 
   /* Setup the watchdog poll timer again */
 
-  (void)wd_start(priv->txpoll, EMAC_WDDELAY, ez80emac_poll_expiry, 1, priv);
+  wd_start(priv->txpoll, EMAC_WDDELAY, ez80emac_poll_expiry, 1, priv);
   net_unlock();
 }
 
@@ -1974,8 +2017,8 @@ static void ez80emac_poll_expiry(int argc, wdparm_t arg, ...)
        * cycle.
        */
 
-      (void)wd_start(priv->txpoll, EMAC_WDDELAY, ez80emac_poll_expiry,
-                     1, arg);
+      wd_start(priv->txpoll, EMAC_WDDELAY, ez80emac_poll_expiry,
+               1, arg);
     }
 }
 
@@ -1998,7 +2041,8 @@ static void ez80emac_poll_expiry(int argc, wdparm_t arg, ...)
 
 static int ez80emac_ifup(FAR struct net_driver_s *dev)
 {
-  FAR struct ez80emac_driver_s *priv = (FAR struct ez80emac_driver_s *)dev->d_private;
+  FAR struct ez80emac_driver_s *priv =
+    (FAR struct ez80emac_driver_s *)dev->d_private;
   uint8_t regval;
   int ret;
 
@@ -2025,9 +2069,9 @@ static int ez80emac_ifup(FAR struct net_driver_s *dev)
        */
 
 #ifdef CONFIG_EZ80_MCFILTER
-      outp(EZ80_EMAC_AFR, EMAC_AFR_BC|EMAC_AFR_QMC|EMAC_AFR_MC);
+      outp(EZ80_EMAC_AFR, EMAC_AFR_BC | EMAC_AFR_QMC | EMAC_AFR_MC);
 #else
-      outp(EZ80_EMAC_AFR, EMAC_AFR_BC|EMAC_AFR_MC);
+      outp(EZ80_EMAC_AFR, EMAC_AFR_BC | EMAC_AFR_MC);
 #endif
 
       /* Set the MAC address */
@@ -2062,8 +2106,8 @@ static int ez80emac_ifup(FAR struct net_driver_s *dev)
 
       /* Set and activate a timer process */
 
-     (void)wd_start(priv->txpoll, EMAC_WDDELAY, ez80emac_poll_expiry,
-                    1, (uint32_t)priv);
+      wd_start(priv->txpoll, EMAC_WDDELAY, ez80emac_poll_expiry,
+               1, (uint32_t)priv);
 
       /* Enable the Ethernet interrupts */
 
@@ -2073,6 +2117,7 @@ static int ez80emac_ifup(FAR struct net_driver_s *dev)
       up_enable_irq(EZ80_EMACSYS_IRQ);
       ret = OK;
     }
+
   return ret;
 }
 
@@ -2155,7 +2200,7 @@ static void ez80emac_txavail_work(FAR void *arg)
 
       /* If so, then poll the network for new XMIT data */
 
-      (void)devif_poll(&priv->dev, ez80emac_txpoll);
+      devif_poll(&priv->dev, ez80emac_txpoll);
     }
 
   net_unlock();
@@ -2182,7 +2227,8 @@ static void ez80emac_txavail_work(FAR void *arg)
 
 static int ez80emac_txavail(FAR struct net_driver_s *dev)
 {
-  FAR struct ez80emac_driver_s *priv = (FAR struct ez80emac_driver_s *)dev->d_private;
+  FAR struct ez80emac_driver_s *priv =
+    (FAR struct ez80emac_driver_s *)dev->d_private;
 
   /* Is our single work structure available?  It may not be if there are
    * pending interrupt actions and we will have to ignore the Tx
@@ -2220,9 +2266,11 @@ static int ez80emac_txavail(FAR struct net_driver_s *dev)
 #ifdef CONFIG_NET_MCASTGROUP
 static int ez80emac_addmac(struct net_driver_s *dev, FAR const uint8_t *mac)
 {
-  FAR struct ez80emac_driver_s *priv = (FAR struct ez80emac_driver_s *)dev->d_private;
+  FAR struct ez80emac_driver_s *priv =
+    (FAR struct ez80emac_driver_s *)dev->d_private;
 
   /* Add the MAC address to the hardware multicast routing table */
+
   /* MISSING LOGIC!!! */
 
   return OK;
@@ -2250,9 +2298,11 @@ static int ez80emac_addmac(struct net_driver_s *dev, FAR const uint8_t *mac)
 #ifdef CONFIG_NET_MCASTGROUP
 static int ez80emac_rmmac(struct net_driver_s *dev, FAR const uint8_t *mac)
 {
-  FAR struct ez80emac_driver_s *priv = (FAR struct ez80emac_driver_s *)dev->d_private;
+  FAR struct ez80emac_driver_s *priv =
+    (FAR struct ez80emac_driver_s *)dev->d_private;
 
   /* Add the MAC address to the hardware multicast routing table */
+
   /* MISSING LOGIC!!! */
 
   return OK;
@@ -2289,12 +2339,14 @@ static int ez80_emacinitialize(void)
 
   /* The ez80 has a fixed 8kb of EMAC SRAM memory (+ 8kb of
    * general purpose SRAM) located in the high address space.
-   * Configure the GP and EMAC SRAM
+   * Configure the GP and EMAC SRAM.
+   *
+   * EZ80_RAM_CTL and EZ80_RAM_ADDR_U where configured by ez80 start-up
+   * logic.  We need only enable EMAC RAM here.
    */
 
-  outp(EZ80_RAM_CTL, (RAMCTL_ERAMEN|RAMCTL_GPRAMEN));
-  outp(EZ80_RAM_ADDR_U, (CONFIG_EZ80_RAMADDR >> 16));
-  outp(EZ80_EMAC_BP_U, (CONFIG_EZ80_RAMADDR >> 16));
+  outp(EZ80_RAM_CTL, (RAMCTL_ERAMEN | RAMCTL_GPRAMEN));
+  outp(EZ80_EMAC_BP_U, (ETH_RAMADDR >> 16));
 
   /* The EMAC memory is broken into two parts: the Tx buffer and the Rx buffer.
    *
@@ -2304,7 +2356,7 @@ static int ez80_emacinitialize(void)
    * The Transmit Write Pointer, TRP, will be set to the TLBP.
    */
 
-  addr                  = CONFIG_EZ80_RAMADDR;
+  addr                  = ETH_RAMADDR;
   outp(EZ80_EMAC_TLBP_L, (uint8_t)(addr & 0xff));
   outp(EZ80_EMAC_TLBP_H, (uint8_t)((addr >> 8) & 0xff));
 
@@ -2418,14 +2470,15 @@ static int ez80_emacinitialize(void)
    * EMAC_CFG4_RXFC - Act on received pause control frames
    */
 
-  outp(EZ80_EMAC_CFG4, EMAC_CFG4_TXFC|EMAC_CFG4_RXFC);
+  outp(EZ80_EMAC_CFG4, EMAC_CFG4_TXFC | EMAC_CFG4_RXFC);
 
   /* EMAC_CFG1_CRCEN + EMAC_CFG1_PADEN + EMAC_CFG1_VLPAD + EMAC_CFG1_ADPADN =
    *   if VLAN not detected, pad to 60, add CRC
    *   if VLAN detected, pad to 64, add CRC
    */
 
-  outp(EZ80_EMAC_CFG1, EMAC_CFG1_CRCEN|EMAC_CFG1_PADEN|EMAC_CFG1_ADPADN|EMAC_CFG1_VLPAD);
+  outp(EZ80_EMAC_CFG1, EMAC_CFG1_CRCEN | EMAC_CFG1_PADEN | EMAC_CFG1_ADPADN |
+                       EMAC_CFG1_VLPAD);
 
   outp(EZ80_EMAC_IPGT, EMAC_IPGT);
   outp(EZ80_EMAC_IPGR1, EMAC_IPGR1);
@@ -2531,26 +2584,26 @@ int up_netinitialize(void)
   /* Initialize the driver structure */
 
   memset(&g_emac, 0, sizeof(struct ez80emac_driver_s));
-  priv->dev.d_buf     = g_pktbuf;           /* Single packet buffer */
-  priv->dev.d_ifup    = ez80emac_ifup;      /* I/F down callback */
-  priv->dev.d_ifdown  = ez80emac_ifdown;    /* I/F up (new IP address) callback */
-  priv->dev.d_txavail = ez80emac_txavail;   /* New TX data callback */
+  priv->dev.d_buf     = g_pktbuf;            /* Single packet buffer */
+  priv->dev.d_ifup    = ez80emac_ifup;       /* I/F down callback */
+  priv->dev.d_ifdown  = ez80emac_ifdown;     /* I/F up (new IP address) callback */
+  priv->dev.d_txavail = ez80emac_txavail;    /* New TX data callback */
 #ifdef CONFIG_NET_MCASTGROUP
-  priv->dev.d_addmac  = ez80emac_addmac;    /* Add multicast MAC address */
-  priv->dev.d_rmmac   = ez80emac_rmmac;     /* Remove multicast MAC address */
+  priv->dev.d_addmac  = ez80emac_addmac;     /* Add multicast MAC address */
+  priv->dev.d_rmmac   = ez80emac_rmmac;      /* Remove multicast MAC address */
 #endif
-  priv->dev.d_private = (FAR void*)&g_emac; /* Used to recover private state from dev */
+  priv->dev.d_private = (FAR void *)&g_emac; /* Used to recover private state from dev */
 
   /* Create a watchdog for timing polling for and timing of transmissions */
 
-  priv->txpoll        = wd_create();        /* Create periodic poll timer */
-  priv->txtimeout     = wd_create();        /* Create TX timeout timer */
+  priv->txpoll        = wd_create();         /* Create periodic poll timer */
+  priv->txtimeout     = wd_create();         /* Create TX timeout timer */
 
   /* Read the MAC address from the hardware into priv->dev.d_mac.ether.ether_addr_octet */
 
   /* Register the device with the OS so that socket IOCTLs can be performed */
 
-  (void)netdev_register(&priv->dev, NET_LL_ETHERNET);
+  netdev_register(&priv->dev, NET_LL_ETHERNET);
   return OK;
 
 errout:
@@ -2608,6 +2661,7 @@ int up_multicastfilter(FAR struct net_driver_s *dev, FAR uint8_t *mac, bool enab
     {
        regval &= ~(1 << bit);
     }
+
   outp(EZ80_EMAC_HTBL_0 + ndx, regval);
   return OK;
 }
@@ -2635,7 +2689,9 @@ void up_netuninitialize(void)
   int i;
 
   ez80emac_ifdown(&priv->dev);
-  /* netdev_unregister(priv->dev); No such API yet */
+#if 0
+  netdev_unregister(priv->dev); /* No such interface yet */
+#endif
 
   priv->txnext = priv->txstart;
   priv->txhead = NULL;
@@ -2646,4 +2702,3 @@ void up_netuninitialize(void)
 }
 
 #endif /* CONFIG_NET && CONFIG_EZ80_EMAC */
-

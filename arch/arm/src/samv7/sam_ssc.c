@@ -44,7 +44,6 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
-#include <semaphore.h>
 #include <errno.h>
 #include <assert.h>
 #include <queue.h>
@@ -59,6 +58,7 @@
 #include <nuttx/wqueue.h>
 #include <nuttx/audio/audio.h>
 #include <nuttx/audio/i2s.h>
+#include <nuttx/semaphore.h>
 
 #include "up_internal.h"
 #include "up_arch.h"
@@ -427,7 +427,7 @@ struct sam_ssc_s
 {
   struct i2s_dev_s dev;        /* Externally visible I2S interface */
   uintptr_t base;              /* SSC controller register base address */
-  sem_t exclsem;               /* Assures mutually exclusive acess to SSC */
+  sem_t exclsem;               /* Assures mutually exclusive access to SSC */
   uint8_t datalen;             /* Data width (8, 16, or 32) */
 #ifdef CONFIG_DEBUG_FEATURES
   uint8_t align;               /* Log2 of data width (0, 1, or 3) */
@@ -862,19 +862,7 @@ static void ssc_dump_queues(struct sam_transport_s *xpt, const char *msg)
 
 static void ssc_exclsem_take(struct sam_ssc_s *priv)
 {
-  int ret;
-
-  /* Wait until we successfully get the semaphore.  EINTR is the only
-   * expected 'failure' (meaning that the wait for the semaphore was
-   * interrupted by a signal.
-   */
-
-  do
-    {
-      ret = nxsem_wait(&priv->exclsem);
-      DEBUGASSERT(ret == OK || ret == -EINTR);
-    }
-  while (ret == -EINTR);
+  nxsem_wait_uninterruptible(&priv->exclsem);
 }
 
 /****************************************************************************
@@ -893,19 +881,7 @@ static void ssc_exclsem_take(struct sam_ssc_s *priv)
 
 static void ssc_bufsem_take(struct sam_ssc_s *priv)
 {
-  int ret;
-
-  /* Wait until we successfully get the semaphore.  EINTR is the only
-   * expected 'failure' (meaning that the wait for the semaphore was
-   * interrupted by a signal.
-   */
-
-  do
-    {
-      ret = nxsem_wait(&priv->bufsem);
-      DEBUGASSERT(ret == 0 || ret == -EINTR);
-    }
-  while (ret == -EINTR);
+  nxsem_wait_uninterruptible(&priv->bufsem);
 }
 
 /****************************************************************************
@@ -1423,7 +1399,7 @@ static void ssc_rx_worker(void *arg)
        */
 
       flags = enter_critical_section();
-      (void)ssc_rxdma_setup(priv);
+      ssc_rxdma_setup(priv);
       leave_critical_section(flags);
     }
 
@@ -1569,7 +1545,7 @@ static void ssc_rxdma_callback(DMA_HANDLE handle, void *arg, int result)
 
   /* Cancel the watchdog timeout */
 
-  (void)wd_cancel(priv->rx.dog);
+  wd_cancel(priv->rx.dog);
 
   /* Sample DMA registers at the time of the DMA completion */
 
@@ -1839,7 +1815,7 @@ static void ssc_tx_worker(void *arg)
        */
 
       flags = enter_critical_section();
-      (void)ssc_txdma_setup(priv);
+      ssc_txdma_setup(priv);
       leave_critical_section(flags);
     }
 
@@ -1973,7 +1949,7 @@ static void ssc_txdma_callback(DMA_HANDLE handle, void *arg, int result)
 
   /* Cancel the watchdog timeout */
 
-  (void)wd_cancel(priv->tx.dog);
+  wd_cancel(priv->tx.dog);
 
   /* Sample DMA registers at the time of the DMA completion */
 
@@ -2231,9 +2207,9 @@ static int ssc_receive(struct i2s_dev_s *dev, struct ap_buffer_s *apb,
 
   flags = enter_critical_section();
   sq_addlast((sq_entry_t *)bfcontainer, &priv->rx.pend);
-  ssc_dump_rxqueues(priv, "Receving");
+  ssc_dump_rxqueues(priv, "Receiving");
 
-  /* Then start the next transfer.  If there is already a transfer in progess,
+  /* Then start the next transfer.  If there is already a transfer in progress,
    * then this will do nothing.
    */
 
@@ -2327,7 +2303,7 @@ static uint32_t ssc_txdatawidth(struct i2s_dev_s *dev, int bits)
       return 0;
     }
 
-  /* Upate the DMA flags */
+  /* Update the DMA flags */
 
   ret = ssc_dma_flags(priv, &dmaflags);
   if (ret < 0)
@@ -2450,7 +2426,7 @@ static int ssc_send(struct i2s_dev_s *dev, struct ap_buffer_s *apb,
   sq_addlast((sq_entry_t *)bfcontainer, &priv->tx.pend);
   ssc_dump_txqueues(priv, "Transmitting");
 
-  /* Then start the next transfer.  If there is already a transfer in progess,
+  /* Then start the next transfer.  If there is already a transfer in progress,
    * then this will do nothing.
    */
 
@@ -2566,7 +2542,7 @@ static int ssc_rx_configure(struct sam_ssc_s *priv)
   /* RFMR settings. Some of these settings will need to be configurable as well.
    * Currently hardcoded to:
    *
-   *  SSC_RFMR_DATLEN(n)    'n' deterimined by configuration
+   *  SSC_RFMR_DATLEN(n)    'n' determined by configuration
    *  SSC_RFMR_LOOP         Determined by configuration
    *  SSC_RFMR_MSBF         Most significant bit first
    *  SSC_RFMR_DATNB(n)     Data number 'n' per frame (hard-coded)
@@ -2880,7 +2856,7 @@ static void ssc_clocking(struct sam_ssc_s *priv)
 
   /* Configure MCK/2 divider */
 
-  (void)ssc_mck2divider(priv);
+  ssc_mck2divider(priv);
 
   /* Enable peripheral clocking */
 

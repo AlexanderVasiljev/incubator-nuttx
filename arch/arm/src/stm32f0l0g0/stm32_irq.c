@@ -128,7 +128,7 @@ static void stm32_dumpnvic(const char *msg, int irq)
  *       stm32_dbgmonitor, stm32_pendsv, stm32_reserved
  *
  * Description:
- *   Handlers for various execptions.  None are handled and all are fatal
+ *   Handlers for various exceptions.  None are handled and all are fatal
  *   error conditions.  The only advantage these provided over the default
  *   unexpected interrupt handler is that they provide a diagnostic output.
  *
@@ -137,7 +137,7 @@ static void stm32_dumpnvic(const char *msg, int irq)
 #ifdef CONFIG_DEBUG_FEATURES
 static int stm32_nmi(int irq, FAR void *context, FAR void *arg)
 {
-  (void)up_irq_save();
+  up_irq_save();
   _err("PANIC!!! NMI received\n");
   PANIC();
   return 0;
@@ -145,7 +145,7 @@ static int stm32_nmi(int irq, FAR void *context, FAR void *arg)
 
 static int stm32_pendsv(int irq, FAR void *context, FAR void *arg)
 {
-  (void)up_irq_save();
+  up_irq_save();
   _err("PANIC!!! PendSV received\n");
   PANIC();
   return 0;
@@ -153,7 +153,7 @@ static int stm32_pendsv(int irq, FAR void *context, FAR void *arg)
 
 static int stm32_reserved(int irq, FAR void *context, FAR void *arg)
 {
-  (void)up_irq_save();
+  up_irq_save();
   _err("PANIC!!! Reserved interrupt\n");
   PANIC();
   return 0;

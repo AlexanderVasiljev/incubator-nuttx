@@ -39,12 +39,12 @@
 
 #include <nuttx/config.h>
 
-#include <semaphore.h>
 #include <assert.h>
 #include <errno.h>
 
 #include <nuttx/sched.h>
 #include <nuttx/fs/fs.h>
+#include <nuttx/semaphore.h>
 
 #include "inode/inode.h"
 
@@ -58,21 +58,7 @@
 
 static inline void _files_semtake(FAR struct filelist *list)
 {
-  int ret;
-
-  do
-    {
-      /* Take the semaphore (perhaps waiting) */
-
-      ret = nxsem_wait(&list->fl_sem);
-
-      /* The only case that an error should occur here is if the wait was
-       * awakened by a signal.
-       */
-
-      DEBUGASSERT(ret == OK || ret == -EINTR);
-    }
-  while (ret == -EINTR);
+  nxsem_wait_uninterruptible(&list->fl_sem);
 }
 
 /****************************************************************************
@@ -166,4 +152,3 @@ int file_detach(int fd, FAR struct file *filep)
   _files_semgive(list);
   return OK;
 }
-

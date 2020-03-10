@@ -1128,7 +1128,7 @@ static int sam_req_write(struct sam_usbdev_s *priv, struct sam_ep_s *privep)
             {
               /* Yes... stall the endpoint now */
 
-              (void)sam_ep_stall(privep);
+              sam_ep_stall(privep);
             }
 
           return -ENOENT;
@@ -1160,7 +1160,7 @@ static int sam_req_write(struct sam_usbdev_s *priv, struct sam_ep_s *privep)
        * (2) called with a request packet that has len == 0
        *
        * len == 0 means that it is requested to send a zero length packet
-       * required by protocoll
+       * required by protocol
        */
 
       else if ((privreq->req.len == 0) && !privep->zlpsent)
@@ -2450,7 +2450,7 @@ static void sam_ep0_dispatch(struct sam_usbdev_s *priv)
           /* Stall on failure */
 
           usbtrace(TRACE_DEVERROR(SAM_TRACEERR_DISPATCHSTALL), 0);
-          (void)sam_ep_stall(&priv->eplist[EP0]);
+          sam_ep_stall(&priv->eplist[EP0]);
         }
     }
 }
@@ -2951,7 +2951,7 @@ static void sam_ep0_setup(struct sam_usbdev_s *priv)
           usbtrace(TRACE_DEVERROR(SAM_TRACEERR_EP0SETUPSTALLED),
                    priv->ctrl.req);
 
-          (void)sam_ep_stall(&priv->eplist[EP0]);
+          sam_ep_stall(&priv->eplist[EP0]);
         }
         break;
 
@@ -3036,7 +3036,7 @@ static void sam_ep_trcpt_interrupt(struct sam_usbdev_s *priv,
     {
       /* continue processing the read request. */
 
-      (void)sam_req_read(priv, privep, pktsize);
+      sam_req_read(priv, privep, pktsize);
     }
 
   /* Did we just receive the data associated with an OUT SETUP command? */
@@ -3066,7 +3066,7 @@ static void sam_ep_trcpt_interrupt(struct sam_usbdev_s *priv,
 
           usbtrace(TRACE_DEVERROR(SAM_TRACEERR_EP0SETUPOUTSIZE), pktsize);
 
-          (void)sam_ep_stall(privep);
+          sam_ep_stall(privep);
         }
     }
 
@@ -3149,7 +3149,7 @@ static void sam_ep_interrupt(struct sam_usbdev_s *priv, int epno)
           /* Continue/resume processing the write requests */
 
           privep->epstate = USB_EPSTATE_IDLE;
-          (void)sam_req_write(priv, privep);
+          sam_req_write(priv, privep);
         }
 
       /* Setting of the device address is a special case.  The address was
@@ -3316,7 +3316,7 @@ static int sam_usb_interrupt(int irq, void *context, void *arg)
   regval  = sam_getreg16(SAM_USBDEV_INTENSET);
   pending = isr & regval;
 
-  /* Get the set of pending enpoint interrupts */
+  /* Get the set of pending endpoint interrupts */
 
   pendingep = sam_getreg16(SAM_USBDEV_EPINTSMRY);
 
@@ -3386,7 +3386,7 @@ static int sam_usb_interrupt(int irq, void *context, void *arg)
       sam_putreg16(USBDEV_INT_WAKEUP | USBDEV_INT_EORSM |
                    USBDEV_INT_SUSPEND, SAM_USBDEV_INTFLAG);
 
-      /* Disable wakup and endofresume Enable suspend interrupt */
+      /* Disable wakeup and endofresume Enable suspend interrupt */
 
       sam_putreg16(USBDEV_INT_WAKEUP | USBDEV_INT_EORSM, SAM_USBDEV_INTENCLR);
       sam_putreg16(USBDEV_INT_SUSPEND, SAM_USBDEV_INTENSET);
@@ -3658,7 +3658,7 @@ static int sam_ep_resume(struct sam_ep_s *privep)
         {
           /* IN endpoint (or EP0).  Restart any queued write requests */
 
-          (void)sam_req_write(priv, privep);
+          sam_req_write(priv, privep);
         }
     }
 
@@ -3958,7 +3958,6 @@ static void sam_sw_setup(struct sam_usbdev_s *priv)
 
 static void sam_sw_shutdown(struct sam_usbdev_s *priv)
 {
-  (void)priv;
 }
 
 /****************************************************************************

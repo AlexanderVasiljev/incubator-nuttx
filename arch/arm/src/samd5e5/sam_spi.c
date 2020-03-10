@@ -44,7 +44,6 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
-#include <semaphore.h>
 #include <errno.h>
 #include <assert.h>
 #include <debug.h>
@@ -53,6 +52,7 @@
 #include <nuttx/arch.h>
 #include <nuttx/wdog.h>
 #include <nuttx/clock.h>
+#include <nuttx/semaphore.h>
 #include <nuttx/spi/spi.h>
 
 #include "up_internal.h"
@@ -130,10 +130,10 @@ struct sam_spidev_s
   /* Debug stuff */
 
 #ifdef CONFIG_SAMD5E5SPI_REGDEBUG
-   bool     wr;                /* Last was a write */
-   uint32_t regaddr;           /* Last address */
-   uint32_t regval;            /* Last value */
-   int      ntimes;            /* Number of times */
+  bool     wr;                /* Last was a write */
+  uint32_t regaddr;           /* Last address */
+  uint32_t regval;            /* Last value */
+  int      ntimes;            /* Number of times */
 #endif
 };
 
@@ -185,7 +185,7 @@ static int      spi_lock(struct spi_dev_s *dev, bool lock);
 static uint32_t spi_setfrequency(struct spi_dev_s *dev, uint32_t frequency);
 static void     spi_setmode(struct spi_dev_s *dev, enum spi_mode_e mode);
 static void     spi_setbits(struct spi_dev_s *dev, int nbits);
-static uint16_t spi_send(struct spi_dev_s *dev, uint16_t ch);
+static uint32_t spi_send(struct spi_dev_s *dev, uint32_t ch);
 static void     spi_exchange(struct spi_dev_s *dev, const void *txbuffer,
                    void *rxbuffer, size_t nwords);
 #ifndef CONFIG_SPI_EXCHANGE
@@ -902,7 +902,7 @@ static int spi_interrupt(int irq, void *context, FAR void *arg)
  *   transfers.  The bus should be locked before the chip is selected. After
  *   locking the SPI bus, the caller should then also call the setfrequency,
  *   setbits, and setmode methods to make sure that the SPI is properly
- *   configured for the device.  If the SPI buss is being shared, then it
+ *   configured for the device.  If the SPI bus is being shared, then it
  *   may have been left in an incompatible state.
  *
  * Input Parameters:
@@ -922,24 +922,11 @@ static int spi_lock(struct spi_dev_s *dev, bool lock)
   spiinfo("lock=%d\n", lock);
   if (lock)
     {
-      /* Take the semaphore (perhaps waiting) */
-
-      do
-        {
-          ret = nxsem_wait(&priv->spilock);
-
-          /* The only case that an error should occur here is if the wait
-           * was awakened by a signal.
-           */
-
-          DEBUGASSERT(ret == OK || ret == -EINTR);
-        }
-      while (ret == -EINTR);
+      ret = nxsem_wait_uninterruptible(&priv->spilock);
     }
   else
     {
-      (void)nxsem_post(&priv->spilock);
-      ret = OK;
+      ret = nxsem_post(&priv->spilock);
     }
 
   return ret;
@@ -1180,7 +1167,7 @@ static void spi_setbits(struct spi_dev_s *dev, int nbits)
  *
  ****************************************************************************/
 
-static uint16_t spi_send(struct spi_dev_s *dev, uint16_t wd)
+static uint32_t spi_send(struct spi_dev_s *dev, uint32_t wd)
 {
   uint8_t txbyte;
   uint8_t rxbyte;
@@ -1195,7 +1182,7 @@ static uint16_t spi_send(struct spi_dev_s *dev, uint16_t wd)
   spi_exchange(dev, &txbyte, &rxbyte, 1);
 
   spiinfo("Sent %02x received %02x\n", txbyte, rxbyte);
-  return (uint16_t)rxbyte;
+  return (uint32_t)rxbyte;
 }
 
 /****************************************************************************
@@ -1268,7 +1255,6 @@ static void spi_exchange(struct spi_dev_s *dev, const void *txbuffer,
 
 #ifdef CONFIG_SAMD5E5SPI_DMA
   uint32_t regval;
-  int ret;
 
   spiinfo("txbuffer=%p rxbuffer=%p nwords=%d\n", txbuffer, rxbuffer, nwords);
 
@@ -1298,13 +1284,9 @@ static void spi_exchange(struct spi_dev_s *dev, const void *txbuffer,
   spi_putreg32(priv, regval, SAM_SPI_CTRLA_OFFSET);
   spi_wait_synchronization(priv);
 
-  do
-    {
-      /* Wait for the DMA callback to notify us that the transfer is complete */
+  /* Wait for the DMA callback to notify us that the transfer is complete */
 
-      ret = nxsem_wait(&priv->dmasem);
-    }
-  while (ret < 0 && ret == -EINTR);
+  nxsem_wait_uninterruptible(&priv->dmasem);
 #else
   const uint16_t *ptx16;
   const uint8_t *ptx8;
@@ -1435,7 +1417,8 @@ static void spi_exchange(struct spi_dev_s *dev, const void *txbuffer,
  *   nwords - the length of data to send from the buffer in number of words.
  *            The wordsize is determined by the number of bits-per-word
  *            selected for the SPI interface.  If nbits <= 8, the data is
- *            packed into uint8_t's; if nbits >8, the data is packed into uint16_t's
+ *            packed into uint8_t's; if nbits >8, the data is packed into
+ *            uint16_t's
  *
  * Returned Value:
  *   None
@@ -1443,7 +1426,8 @@ static void spi_exchange(struct spi_dev_s *dev, const void *txbuffer,
  ****************************************************************************/
 
 #ifndef CONFIG_SPI_EXCHANGE
-static void spi_sndblock(struct spi_dev_s *dev, const void *buffer, size_t nwords)
+static void spi_sndblock(struct spi_dev_s *dev, const void *buffer,
+                         size_t nwords)
 {
   /* spi_exchange can do this. */
 
@@ -1461,9 +1445,10 @@ static void spi_sndblock(struct spi_dev_s *dev, const void *buffer, size_t nword
  *   dev -    Device-specific state data
  *   buffer - A pointer to the buffer in which to receive data
  *   nwords - the length of data that can be received in the buffer in number
- *            of words.  The wordsize is determined by the number of bits-per-word
- *            selected for the SPI interface.  If nbits <= 8, the data is
- *            packed into uint8_t's; if nbits >8, the data is packed into uint16_t's
+ *            of words.  The wordsize is determined by the number of
+ *            bits-per-word selected for the SPI interface.  If nbits <= 8,
+ *            the data is packed into uint8_t's; if nbits >8, the data is
+ *            packed into uint16_t's
  *
  * Returned Value:
  *   None
@@ -1489,7 +1474,8 @@ static void spi_recvblock(struct spi_dev_s *dev, void *buffer, size_t nwords)
 
 static void spi_wait_synchronization(struct sam_spidev_s *priv)
 {
-  while ((spi_getreg16(priv, SAM_SPI_SYNCBUSY_OFFSET) & SPI_SYNCBUSY_ALL) != 0);
+  while ((spi_getreg16(priv, SAM_SPI_SYNCBUSY_OFFSET) &
+         SPI_SYNCBUSY_ALL) != 0);
 }
 
 /****************************************************************************
@@ -1676,7 +1662,7 @@ struct spi_dev_s *sam_spibus_initialize(int port)
    * driver as soon as it starts.
    */
 
-  (void)spi_setfrequency((struct spi_dev_s *)priv, 400000);
+  spi_setfrequency((struct spi_dev_s *)priv, 400000);
 
   /* Set MSB first data order and the configured pad mux setting.
    * SPI mode 0 is assumed initially (CPOL=0 and CPHA=0).

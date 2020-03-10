@@ -117,7 +117,7 @@ static int am335x_timerisr(int irq, uint32_t *regs, void *arg)
  ****************************************************************************/
 
 /****************************************************************************
- * Function:  arm_timer_initialize
+ * Function:  up_timer_initialize
  *
  * Description:
  *   This function is called during start-up to initialize
@@ -125,7 +125,7 @@ static int am335x_timerisr(int irq, uint32_t *regs, void *arg)
  *
  ****************************************************************************/
 
-void arm_timer_initialize(void)
+void up_timer_initialize(void)
 {
   uint32_t regval;
 
@@ -154,7 +154,7 @@ void arm_timer_initialize(void)
 
   /* Attach the timer interrupt vector */
 
-  (void)irq_attach(AM335X_IRQ_TIMER1_1MS, (xcpt_t)am335x_timerisr, NULL);
+  irq_attach(AM335X_IRQ_TIMER1_1MS, (xcpt_t)am335x_timerisr, NULL);
 
   /* Clear interrupt status */
 
@@ -193,7 +193,7 @@ void arm_timer_initialize(void)
 
   /* Attach the timer interrupt vector */
 
-  (void)irq_attach(AM335X_IRQ_TIMER2, (xcpt_t)am335x_timerisr, NULL);
+  irq_attach(AM335X_IRQ_TIMER2, (xcpt_t)am335x_timerisr, NULL);
 
   /* Enable overflow interrupt */
 

@@ -44,11 +44,11 @@
 #include <fixedmath.h>
 #include <errno.h>
 #include <debug.h>
-#include <semaphore.h>
 #include <arch/types.h>
 #include <nuttx/kmalloc.h>
 #include <nuttx/fs/fs.h>
 #include <nuttx/i2c/i2c_master.h>
+#include <nuttx/semaphore.h>
 #include <nuttx/sensors/ak09912.h>
 #include <nuttx/wdog.h>
 #include <nuttx/irq.h>
@@ -84,7 +84,7 @@
 #define AK09912_ASAX        0x60
 
 /* REGISTER: CNTL1
- * Enable or disable temparator measure or enable or disable Noice suppression
+ * Enable or disable temparator measure or enable or disable Noise suppression
  * filter.
  */
 
@@ -107,7 +107,7 @@
 #define AK09912_SENSITIVITY               (128)
 #define AK09912_SENSITIVITY_DIV           (256)
 
-/* Noice Suppression Filter */
+/* Noise Suppression Filter */
 
 #define AK09912_NSF_NONE                  0b00
 #define AK09912_NSF_LOW                   0b01
@@ -164,7 +164,7 @@ struct ak09912_dev_s
   int compensated;              /* 0: uncompensated, 1:compensated */
   struct sensi_data_s asa_data; /* sensitivity data */
   uint8_t mode;                 /* power mode */
-  uint8_t nsf;                  /* noice suppression filter setting */
+  uint8_t nsf;                  /* noise suppression filter setting */
   WDOG_ID wd;
   sem_t wait;
 };
@@ -370,14 +370,14 @@ static int ak09912_read_sensitivity_data(FAR struct ak09912_dev_s *priv,
 }
 
 /****************************************************************************
- * Name: ak09912_set_noice_suppr_flt
+ * Name: ak09912_set_noise_suppr_flt
  *
  * Description:
- *   set noice suppression filter for ak09912
+ *   set noise suppression filter for ak09912
  *
  ****************************************************************************/
 
-static int ak09912_set_noice_suppr_flt(FAR struct ak09912_dev_s *priv,
+static int ak09912_set_noise_suppr_flt(FAR struct ak09912_dev_s *priv,
                                        uint32_t nsf)
 {
   int ret = 0;
@@ -402,7 +402,7 @@ static void ak09912_wd_timeout(int argc, uint32_t arg, ...)
 {
   struct ak09912_dev_s *priv = (struct ak09912_dev_s *) arg;
   irqstate_t flags = enter_critical_section();
-  sem_post(&priv->wait);
+  nxsem_post(&priv->wait);
   leave_critical_section(flags);
 }
 
@@ -426,7 +426,7 @@ static int ak09912_read_mag_uncomp_data(FAR struct ak09912_dev_s *priv,
   state = ak09912_getreg8(priv, AK09912_ST1);
   while (! (state & 0x1))
     {
-      sem_wait(&priv->wait);
+      nxsem_wait(&priv->wait);
     }
 
   wd_cancel(priv->wd);
@@ -516,7 +516,7 @@ static int ak09912_initialize(FAR struct ak09912_dev_s *priv)
   ret += ak09912_set_power_mode(priv, AKM_FUSE_ROM_MODE);
   ret += ak09912_read_sensitivity_data(priv, &priv->asa_data);
   ret += ak09912_set_power_mode(priv, AKM_POWER_DOWN_MODE);
-  ret += ak09912_set_noice_suppr_flt(priv, priv->nsf);
+  ret += ak09912_set_noise_suppr_flt(priv, priv->nsf);
   return ret;
 }
 
@@ -688,9 +688,9 @@ int ak09912_register(FAR const char *devpath, FAR struct i2c_master_s *i2c)
   priv->freq = AK09912_FREQ;
   priv->compensated = ENABLE_COMPENSATED;
   priv->wd = wd_create();
-  sem_init(&priv->wait, 0, 0);
+  nxsem_init(&priv->wait, 0, 0);
 
-  /* set default noice suppression filter. */
+  /* set default noise suppression filter. */
 
   priv->nsf = AK09912_NSF_LOW;
 
@@ -718,7 +718,7 @@ int ak09912_register(FAR const char *devpath, FAR struct i2c_master_s *i2c)
 
   /* Register the character driver */
 
-  (void) snprintf(path, sizeof(path), "%s%d", devpath, 0);
+  snprintf(path, sizeof(path), "%s%d", devpath, 0);
   ret = register_driver(path, &g_ak09912fops, 0666, priv);
   if (ret < 0)
     {

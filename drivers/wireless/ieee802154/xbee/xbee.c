@@ -45,11 +45,9 @@
 #include <stdint.h>
 #include <string.h>
 #include <errno.h>
-#include <semaphore.h>
 
 #include <nuttx/kmalloc.h>
 #include <nuttx/wqueue.h>
-#include <nuttx/semaphore.h>
 #include <nuttx/mm/iob.h>
 
 #include "xbee.h"
@@ -386,7 +384,7 @@ static void xbee_attnworker(FAR void *arg)
       xbee_process_apiframes(priv, iobhead);
     }
 
-  /* If an interrupt occured while the worker was running, it was not
+  /* If an interrupt occurred while the worker was running, it was not
    * scheduled since there is a good chance this function has already handled
    * it as part of the previous ATTN assertion. Therefore, if the ATTN
    * line is asserted again reschedule the work.
@@ -1173,13 +1171,13 @@ static void xbee_lockupcheck_reschedule(FAR struct xbee_priv_s *priv)
   wd_cancel(priv->lockup_wd);
 
   /* Kickoff the watchdog timer that will query the XBee periodically (if naturally
-   * occuring queries do not occur). We query periodically to make sure the XBee
+   * occurring queries do not occur). We query periodically to make sure the XBee
    * is still responsive. If during any query, the XBee does not respond after
    * multiple attempts, we restart the XBee to get it back in a working state
    */
 
-  (void)wd_start(priv->lockup_wd, XBEE_LOCKUP_QUERYTIME, xbee_lockupcheck_timeout,
-                 1, (wdparm_t)priv);
+  wd_start(priv->lockup_wd, XBEE_LOCKUP_QUERYTIME, xbee_lockupcheck_timeout,
+           1, (wdparm_t)priv);
 }
 
 #endif
@@ -1519,7 +1517,6 @@ int xbee_atquery(FAR struct xbee_priv_s *priv, FAR const char *atcommand)
   ret = nxsem_wait(&priv->atquery_sem);
   if (ret < 0)
     {
-      DEBUGASSERT(ret == -EINTR || ret == -ECANCELED);
       return ret;
     }
 
@@ -1546,8 +1543,8 @@ int xbee_atquery(FAR struct xbee_priv_s *priv, FAR const char *atcommand)
         {
           /* Setup a timeout */
 
-          (void)wd_start(priv->atquery_wd, XBEE_ATQUERY_TIMEOUT, xbee_atquery_timeout,
-                         1, (wdparm_t)priv);
+          wd_start(priv->atquery_wd, XBEE_ATQUERY_TIMEOUT, xbee_atquery_timeout,
+                   1, (wdparm_t)priv);
         }
 
       /* Send the query */
@@ -1561,7 +1558,6 @@ int xbee_atquery(FAR struct xbee_priv_s *priv, FAR const char *atcommand)
       ret = nxsem_wait(&priv->atresp_sem);
       if (ret < 0)
         {
-          DEBUGASSERT(ret == -EINTR || ret == -ECANCELED);
           wd_cancel(priv->atquery_wd);
           priv->querycmd[0] = 0;
           priv->querycmd[1] = 0;

@@ -110,8 +110,8 @@ static void zcross_enable(FAR const struct zc_lowerhalf_s *lower,
       g_zcrossarg     = arg;
     }
 
-  (void)stm32_gpiosetevent(GPIO_ZEROCROSS, rising, falling,
-                           true, zcross_interrupt, NULL);
+  stm32_gpiosetevent(GPIO_ZEROCROSS, rising, falling,
+                     true, zcross_interrupt, NULL);
 
   leave_critical_section(flags);
 }
@@ -132,7 +132,7 @@ static void zcross_disable(void)
 
   flags = enter_critical_section();
 
-  (void)stm32_gpiosetevent(GPIO_ZEROCROSS, false, false, false, NULL, NULL);
+  stm32_gpiosetevent(GPIO_ZEROCROSS, false, false, false, NULL, NULL);
 
   leave_critical_section(flags);
 
@@ -191,4 +191,3 @@ int stm32_zerocross_initialize(void)
 }
 
 #endif /* CONFIG_SENSORS_ZEROCROSS */
-

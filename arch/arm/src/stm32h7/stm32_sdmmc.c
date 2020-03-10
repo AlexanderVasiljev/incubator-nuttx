@@ -43,7 +43,6 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include <semaphore.h>
 #include <string.h>
 #include <assert.h>
 #include <debug.h>
@@ -155,6 +154,18 @@
 
 #if !defined(CONFIG_DEBUG_FS) || !defined(CONFIG_DEBUG_FEATURES)
 #  undef CONFIG_CONFIG_STM32H7_SDMMC_XFRDEBUG
+#endif
+
+#ifdef CONFIG_SDMMC1_SDIO_PULLUP
+#  define SDMMC1_SDIO_PULL(g)  (((g) & ~GPIO_PUPD_MASK) | GPIO_PULLUP)
+#else
+#  define SDMMC1_SDIO_PULL(g)  (((g) & ~GPIO_PUPD_MASK) | GPIO_FLOAT)
+#endif
+
+#ifdef CONFIG_SDMMC2_SDIO_PULLUP
+#  define SDMMC2_SDIO_PULL(g)  (((g) & ~GPIO_PUPD_MASK) | GPIO_PULLUP)
+#else
+#  define SDMMC2_SDIO_PULL(g)  (((g) & ~GPIO_PUPD_MASK) | GPIO_FLOAT)
 #endif
 
 /* Define the Hardware FIFO size */
@@ -342,7 +353,6 @@ struct stm32_dev_s
 
   /* Misc */
 
-  uint32_t           pullup;     /* GPIO pull-up option */
   uint32_t           blocksize;  /* Current block size */
   uint32_t           receivecnt; /* Real count to receive */
 #if !defined(CONFIG_STM32H7_SDMMC_IDMA)
@@ -552,13 +562,10 @@ struct stm32_dev_s g_sdmmcdev1 =
   .base              = STM32_SDMMC1_BASE,
   .nirq              = STM32_IRQ_SDMMC1,
 #if defined(CONFIG_MMCSD_SDIOWAIT_WRCOMPLETE)
-  .d0_gpio           = GPIO_SDMMC1_D0,
+  .d0_gpio           = SDMMC1_SDIO_PULL(GPIO_SDMMC1_D0),
 #endif
 #if defined(HAVE_SDMMC_SDIO_MODE) && defined(CONFIG_SDMMC1_SDIO_MODE)
   .sdiomode          = true,
-#endif
-#if defined(CONFIG_SDMMC1_SDIO_PULLUP)
-  .pullup            = GPIO_PULLUP,
 #endif
 };
 #endif
@@ -607,13 +614,10 @@ struct stm32_dev_s g_sdmmcdev2 =
   .base              = STM32_SDMMC2_BASE,
   .nirq              = STM32_IRQ_SDMMC2,
 #if defined(CONFIG_MMCSD_SDIOWAIT_WRCOMPLETE)
-  .d0_gpio           = GPIO_SDMMC2_D0,
+  .d0_gpio           = SDMMC2_SDIO_PULL(GPIO_SDMMC2_D0),
 #endif
 #if defined(HAVE_SDMMC_SDIO_MODE) && defined(CONFIG_SDMMC2_SDIO_MODE)
   .sdiomode          = true,
-#endif
-#if defined(CONFIG_SDMMC2_SDIO_PULLUP)
-  .pullup            = GPIO_PULLUP,
 #endif
 };
 #endif
@@ -681,21 +685,7 @@ static inline void sdmmc_modifyreg32(struct stm32_dev_s *priv, int offset,
 
 static void stm32_takesem(struct stm32_dev_s *priv)
 {
-  int ret;
-
-  do
-    {
-      /* Take the semaphore (perhaps waiting) */
-
-      ret = nxsem_wait(&priv->waitsem);
-
-      /* The only case that an error should occur here is if the wait was
-       * awakened by a signal.
-       */
-
-      DEBUGASSERT(ret == OK || ret == -EINTR);
-    }
-  while (ret == -EINTR);
+  nxsem_wait_uninterruptible(&priv->waitsem);
 }
 
 /****************************************************************************
@@ -775,6 +765,7 @@ static void stm32_configwaitints(struct stm32_dev_s *priv, uint32_t waitmask,
   /* Save all of the data and set the new interrupt mask in one, atomic
    * operation.
    */
+
   flags = enter_critical_section();
 
 #if defined(CONFIG_MMCSD_SDIOWAIT_WRCOMPLETE)
@@ -784,21 +775,22 @@ static void stm32_configwaitints(struct stm32_dev_s *priv, uint32_t waitmask,
 
       waitmask &= ~SDIOWAIT_WRCOMPLETE;
 
-      pinset = priv->d0_gpio & (GPIO_PORT_MASK | GPIO_PIN_MASK);
-      pinset |= (GPIO_INPUT | GPIO_FLOAT | GPIO_EXTI);
+      pinset = priv->d0_gpio & (GPIO_PORT_MASK | GPIO_PIN_MASK | \
+                                GPIO_PUPD_MASK);
+      pinset |= (GPIO_INPUT | GPIO_EXTI);
 
       /* Arm the SDMMC_D Ready and install Isr */
 
-      (void)stm32_gpiosetevent(pinset, true, false, false,
-                               stm32_sdmmc_rdyinterrupt, priv);
+      stm32_gpiosetevent(pinset, true, false, false,
+                         stm32_sdmmc_rdyinterrupt, priv);
     }
 
   /* Disarm SDMMC_D ready */
 
   if ((wkupevent & SDIOWAIT_WRCOMPLETE) != 0)
     {
-      (void)stm32_gpiosetevent(priv->d0_gpio, false, false, false,
-                               NULL, NULL);
+      stm32_gpiosetevent(priv->d0_gpio, false, false, false,
+                         NULL, NULL);
       stm32_configgpio(priv->d0_gpio);
     }
 #endif
@@ -1330,7 +1322,7 @@ static void stm32_endwait(struct stm32_dev_s *priv, sdio_eventset_t wkupevent)
 {
   /* Cancel the watchdog timeout */
 
-  (void)wd_cancel(priv->waitwdog);
+  wd_cancel(priv->waitwdog);
 
   /* Disable event-related interrupts */
 
@@ -1424,6 +1416,7 @@ static void stm32_endtransfer(struct stm32_dev_s *priv,
  *   None
  *
  ****************************************************************************/
+
 #if !defined(CONFIG_STM32H7_SDMMC_IDMA)
 static void stm32_sdmmc_fifo_monitor(FAR void *arg)
 {
@@ -1442,8 +1435,8 @@ static void stm32_sdmmc_fifo_monitor(FAR void *arg)
   if (sdmmc_getreg32(priv, STM32_SDMMC_DCOUNT_OFFSET) != 0 &&
       sdmmc_getreg32(priv, STM32_SDMMC_STA_OFFSET) == STM32_SDMMC_STA_DPSMACT)
     {
-      (void)work_queue(HPWORK, &priv->cbfifo,
-                       (worker_t)stm32_sdmmc_fifo_monitor, arg, 1);
+      work_queue(HPWORK, &priv->cbfifo,
+                 (worker_t)stm32_sdmmc_fifo_monitor, arg, 1);
     }
 }
 #endif
@@ -1527,8 +1520,8 @@ static int stm32_sdmmc_interrupt(int irq, void *context, void *arg)
 
               stm32_recvfifo(priv);
 #if !defined(CONFIG_STM32H7_SDMMC_IDMA)
-              (void)work_queue(HPWORK, &priv->cbfifo,
-                               (worker_t)stm32_sdmmc_fifo_monitor, arg, 1);
+              work_queue(HPWORK, &priv->cbfifo,
+                         (worker_t)stm32_sdmmc_fifo_monitor, arg, 1);
 #endif
             }
 
@@ -1564,7 +1557,7 @@ static int stm32_sdmmc_interrupt(int irq, void *context, void *arg)
                * half-full interrupt will be received.
                */
 
-              /* If the tranfer would not trigger fifo half full
+              /* If the transfer would not trigger fifo half full
                * we used IDMA to manage the lame fifo
                */
 
@@ -2299,7 +2292,7 @@ static int stm32_cancel(FAR struct sdio_dev_s *dev)
 
   /* Cancel any watchdog timeout */
 
-  (void)wd_cancel(priv->waitwdog);
+  wd_cancel(priv->waitwdog);
 
   /* Mark no transfer in progress */
 
@@ -2811,7 +2804,7 @@ errout:
  *
  *   Events are automatically disabled once the callback is performed and no
  *   further callback events will occur until they are again enabled by
- *   calling this methos.
+ *   calling this method.
  *
  * Input Parameters:
  *   dev      - An instance of the SDIO device interface
@@ -2849,7 +2842,7 @@ static void stm32_callbackenable(FAR struct sdio_dev_s *dev,
  *
  * Input Parameters:
  *   dev -      Device-specific state data
- *   callback - The funtion to call on the media change
+ *   callback - The function to call on the media change
  *   arg -      A caller provided value to return with the callback
  *
  * Returned Value:
@@ -3217,8 +3210,8 @@ static void stm32_callback(void *arg)
           /* Yes.. queue it */
 
           mcinfo("Queuing callback to %p(%p)\n", priv->callback, priv->cbarg);
-          (void)work_queue(HPWORK, &priv->cbwork, (worker_t)priv->callback,
-                           priv->cbarg, 0);
+          work_queue(HPWORK, &priv->cbwork, (worker_t)priv->callback,
+                     priv->cbarg, 0);
         }
       else
         {
@@ -3295,14 +3288,14 @@ FAR struct sdio_dev_s *sdio_initialize(int slotno)
        */
 
 #  ifndef CONFIG_SDIO_MUXBUS
-      stm32_configgpio(GPIO_SDMMC1_D0 | priv->pullup);
+      stm32_configgpio(SDMMC1_SDIO_PULL(GPIO_SDMMC1_D0));
 #    ifndef CONFIG_SDMMC1_WIDTH_D1_ONLY
-      stm32_configgpio(GPIO_SDMMC1_D1 | priv->pullup);
-      stm32_configgpio(GPIO_SDMMC1_D2 | priv->pullup);
-      stm32_configgpio(GPIO_SDMMC1_D3 | priv->pullup);
+      stm32_configgpio(SDMMC1_SDIO_PULL(GPIO_SDMMC1_D1));
+      stm32_configgpio(SDMMC1_SDIO_PULL(GPIO_SDMMC1_D2));
+      stm32_configgpio(SDMMC1_SDIO_PULL(GPIO_SDMMC1_D3));
 #    endif
       stm32_configgpio(GPIO_SDMMC1_CK);
-      stm32_configgpio(GPIO_SDMMC1_CMD | priv->pullup);
+      stm32_configgpio(SDMMC1_SDIO_PULL(GPIO_SDMMC1_CMD));
 #  endif
     }
   else
@@ -3328,14 +3321,14 @@ FAR struct sdio_dev_s *sdio_initialize(int slotno)
        */
 
 #  ifndef CONFIG_SDIO_MUXBUS
-      stm32_configgpio(GPIO_SDMMC2_D0 | priv->pullup);
+      stm32_configgpio(SDMMC2_SDIO_PULL(GPIO_SDMMC2_D0));
 #    ifndef CONFIG_SDMMC2_WIDTH_D1_ONLY
-      stm32_configgpio(GPIO_SDMMC2_D1 | priv->pullup);
-      stm32_configgpio(GPIO_SDMMC2_D2 | priv->pullup);
-      stm32_configgpio(GPIO_SDMMC2_D3 | priv->pullup);
+      stm32_configgpio(SDMMC2_SDIO_PULL(GPIO_SDMMC2_D1));
+      stm32_configgpio(SDMMC2_SDIO_PULL(GPIO_SDMMC2_D2));
+      stm32_configgpio(SDMMC2_SDIO_PULL(GPIO_SDMMC2_D3));
 #    endif
       stm32_configgpio(GPIO_SDMMC2_CK);
-      stm32_configgpio(GPIO_SDMMC2_CMD | priv->pullup);
+      stm32_configgpio(SDMMC2_SDIO_PULL(GPIO_SDMMC2_CMD));
 #  endif
     }
   else

@@ -117,10 +117,10 @@
 #include <stdint.h>
 #include <string.h>
 #include <errno.h>
-#include <semaphore.h>
 
 #include <nuttx/arch.h>
 #include <nuttx/kmalloc.h>
+#include <nuttx/semaphore.h>
 #include <nuttx/wqueue.h>
 #include <nuttx/fs/fs.h>
 #include <nuttx/mm/iob.h>
@@ -486,21 +486,7 @@ static struct spirit_pktstack_address_s g_addrinit =
 
 static void spirit_rxlock(FAR struct spirit_driver_s *priv)
 {
-  int ret;
-
-  do
-    {
-      /* Take the semaphore (perhaps waiting) */
-
-      ret = nxsem_wait(&priv->rxsem);
-
-      /* The only case that an error should occur here is if the wait was
-       * awakened by a signal.
-       */
-
-      DEBUGASSERT(ret == OK || ret == -EINTR);
-    }
-  while (ret == -EINTR);
+  nxsem_wait_uninterruptible(&priv->rxsem);
 }
 
 /****************************************************************************
@@ -538,21 +524,7 @@ static inline void spirit_rxunlock(FAR struct spirit_driver_s *priv)
 
 static void spirit_txlock(FAR struct spirit_driver_s *priv)
 {
-  int ret;
-
-  do
-    {
-      /* Take the semaphore (perhaps waiting) */
-
-      ret = nxsem_wait(&priv->txsem);
-
-      /* The only case that an error should occur here is if the wait was
-       * awakened by a signal.
-       */
-
-      DEBUGASSERT(ret == OK || ret == -EINTR);
-    }
-  while (ret == -EINTR);
+  nxsem_wait_uninterruptible(&priv->txsem);
 }
 
 /****************************************************************************
@@ -937,18 +909,18 @@ static void spirit_transmit_work(FAR void *arg)
 
       /* Setup the TX timeout watchdog (perhaps restarting the timer) */
 
-      (void)wd_start(priv->txtimeout, SPIRIT_TXTIMEOUT,
-                     spirit_txtimeout_expiry, 1, (wdparm_t)priv);
+      wd_start(priv->txtimeout, SPIRIT_TXTIMEOUT,
+               spirit_txtimeout_expiry, 1, (wdparm_t)priv);
     }
 
   spirit_txunlock(priv);
   return;
 
 errout_with_rxtimeout:
-  (void)spirit_timer_set_rxtimeout_counter(spirit, 0);
+  spirit_timer_set_rxtimeout_counter(spirit, 0);
 
 errout_with_csma:
-  (void)spirit_csma_enable(spirit, S_DISABLE);
+  spirit_csma_enable(spirit, S_DISABLE);
 
 errout_with_lock:
   spirit_txunlock(priv);
@@ -1316,7 +1288,7 @@ static void spirit_interrupt_work(FAR void *arg)
 
       if (priv->state != DRIVER_STATE_RECEIVING)
         {
-          /* As a race condition, the TX state, but overriden by concurrent
+          /* As a race condition, the TX state, but overridden by concurrent
            * RX activity?  This assertion here *does* fire:
            *
            *   DEBUGASSERT(priv->state == DRIVER_STATE_IDLE);
@@ -1379,7 +1351,7 @@ static void spirit_interrupt_work(FAR void *arg)
 #else
       offset = 0;
 #endif
-      /* Get the number of bytes avaialable in the RX FIFO */
+      /* Get the number of bytes available in the RX FIFO */
 
       count = spirit_fifo_get_rxcount(spirit);
       wlinfo("Receiving %u bytes (%u total)\n", count, count + offset);
@@ -1533,7 +1505,7 @@ static void spirit_interrupt_work(FAR void *arg)
 
       if (iob != NULL)
         {
-          /* Get the number of bytes avaialable in the RX FIFO */
+          /* Get the number of bytes available in the RX FIFO */
 
           count = spirit_fifo_get_rxcount(spirit);
           wlinfo("Receiving %u bytes (%u so far)\n", count, count + offset);
@@ -1693,7 +1665,7 @@ static void spirit_txtimeout_work(FAR void *arg)
   wlwarn("WARNING: TX Timeout.  state=%u\n", priv->state);
 
   /* Are we in the sending state?  If not, then this must be a spurious
-   * timout.
+   * timeout.
    */
 
   if (priv->state == DRIVER_STATE_SENDING)
@@ -1812,18 +1784,18 @@ static void spirit_txpoll_work(FAR void *arg)
       /* Perform the periodic poll */
 
       priv->needpoll = false;
-      (void)devif_timer(&priv->radio.r_dev, spirit_txpoll_callback);
+      devif_timer(&priv->radio.r_dev, SPIRIT_WDDELAY, spirit_txpoll_callback);
 
       /* Setup the watchdog poll timer again */
 
-      (void)wd_start(priv->txpoll, SPIRIT_WDDELAY, spirit_txpoll_expiry, 1,
-                     (wdparm_t)priv);
+      wd_start(priv->txpoll, SPIRIT_WDDELAY, spirit_txpoll_expiry, 1,
+               (wdparm_t)priv);
     }
   else
     {
       /* Perform a normal, asynchronous poll for new TX data */
 
-      (void)devif_poll(&priv->radio.r_dev, spirit_txpoll_callback);
+      devif_poll(&priv->radio.r_dev, spirit_txpoll_callback);
     }
 
   net_unlock();
@@ -1872,7 +1844,7 @@ static void spirit_txpoll_expiry(int argc, wdparm_t arg, ...)
  *
  * Assumptions:
  *   Called from the network layer and running on the LP working thread.
- *   This interracts with the spirit hardware, but does so while the network
+ *   This interacts with the spirit hardware, but does so while the network
  *   is down and with Spirit interrupts disabled.
  *
  ****************************************************************************/
@@ -1954,8 +1926,8 @@ static int spirit_ifup(FAR struct net_driver_s *dev)
 
       /* Set and activate a timer process */
 
-      (void)wd_start(priv->txpoll, SPIRIT_WDDELAY, spirit_txpoll_expiry, 1,
-                     (wdparm_t)priv);
+      wd_start(priv->txpoll, SPIRIT_WDDELAY, spirit_txpoll_expiry, 1,
+               (wdparm_t)priv);
 
       /* Enables the interrupts from the SPIRIT1 */
 
@@ -1971,7 +1943,7 @@ static int spirit_ifup(FAR struct net_driver_s *dev)
 
 error_with_ifalmostup:
   priv->ifup = true;
-  (void)spirit_ifdown(dev);
+  spirit_ifdown(dev);
   return ret;
 }
 
@@ -1989,7 +1961,7 @@ error_with_ifalmostup:
  *
  * Assumptions:
  *   Called from the network layer and running on the LP working thread.
- *   This interracts with the spirit hardware, but does so with Spirit
+ *   This interacts with the spirit hardware, but does so with Spirit
  *   interrupts disabled.
  *
  ****************************************************************************/
@@ -2348,7 +2320,7 @@ static int spirit_req_data(FAR struct radio_driver_s *netdev,
        * the we got from the network, be we will copy it so that we can
        * control the life of the container.
        *
-       * REVISIT:  To bad we cound not just simply allocate the structure
+       * REVISIT:  To bad we could not just simply allocate the structure
        * on the network side.  But that behavior is incompatible with how
        * IEEE 802.15.4 works.
        */
@@ -2390,7 +2362,7 @@ static int spirit_req_data(FAR struct radio_driver_s *netdev,
       spirit_txunlock(priv);
 
       /* If are no transmissions or receptions in progress, then schedule
-       * tranmission of the frame in the IOB at the head of the IOB queue.
+       * transmission of the frame in the IOB at the head of the IOB queue.
        */
 
       spirit_schedule_transmit_work(priv);
@@ -2410,7 +2382,7 @@ static int spirit_req_data(FAR struct radio_driver_s *netdev,
  *
  * Input Parameters:
  *   netdev     - The network device to be queried
- *   properties - Location where radio properities will be returned.
+ *   properties - Location where radio properties will be returned.
  *
  * Returned Value:
  *   Zero (OK) returned on success; a negated errno value is returned on
@@ -2503,7 +2475,7 @@ int spirit_hw_initialize(FAR struct spirit_driver_s *priv,
 
   /* Perform VCO calibration WA when the radio is initialized */
 
-  wlinfo("Peform VCO calibration\n");
+  wlinfo("Perform VCO calibration\n");
   spirit_radio_enable_wavco_calibration(spirit, S_ENABLE);
 
   /* Configure the Spirit1 radio part */
@@ -2890,7 +2862,7 @@ int spirit_netdev_initialize(FAR struct spi_dev_s *spi,
   return OK;
 
 errout_with_attach:
-  (void)lower->attach(lower, NULL, NULL);
+  lower->attach(lower, NULL, NULL);
 
 errout_with_alloc:
   kmm_free(priv);

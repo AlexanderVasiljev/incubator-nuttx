@@ -43,7 +43,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <semaphore.h>
 #include <assert.h>
 #include <errno.h>
 #include <debug.h>
@@ -55,6 +54,7 @@
 #include <nuttx/wqueue.h>
 #include <nuttx/scsi.h>
 #include <nuttx/fs/fs.h>
+#include <nuttx/semaphore.h>
 
 #include <nuttx/usb/usb.h>
 #include <nuttx/usb/usbhost.h>
@@ -329,21 +329,7 @@ static uint32_t g_devinuse;
 
 static void usbhost_takesem(sem_t *sem)
 {
-  int ret;
-
-  do
-    {
-      /* Take the semaphore (perhaps waiting) */
-
-      ret = nxsem_wait(sem);
-
-      /* The only case that an error should occur here is if the wait was
-       * awakened by a signal.
-       */
-
-      DEBUGASSERT(ret == OK || ret == -EINTR);
-    }
-  while (ret == -EINTR);
+  nxsem_wait_uninterruptible(sem);
 }
 
 /****************************************************************************
@@ -490,7 +476,7 @@ static void usbhost_freedevno(FAR struct usbhost_state_s *priv)
 
 static inline void usbhost_mkdevname(FAR struct usbhost_state_s *priv, char *devname)
 {
-  (void)snprintf(devname, DEV_NAMELEN, DEV_FORMAT, priv->sdchar);
+  snprintf(devname, DEV_NAMELEN, DEV_FORMAT, priv->sdchar);
 }
 
 /****************************************************************************
@@ -931,7 +917,7 @@ static void usbhost_destroy(FAR void *arg)
   /* Unregister the block driver */
 
   usbhost_mkdevname(priv, devname);
-  (void)unregister_blockdriver(devname);
+  unregister_blockdriver(devname);
 
   /* Release the device name used by this connection */
 
@@ -1187,7 +1173,7 @@ static inline int usbhost_cfgdesc(FAR struct usbhost_state_s *priv,
   if (ret < 0)
     {
       uerr("ERROR: Failed to allocate Bulk IN endpoint\n");
-      (void)DRVR_EPFREE(hport->drvr, priv->bulkout);
+      DRVR_EPFREE(hport->drvr, priv->bulkout);
       return ret;
     }
 
@@ -1354,7 +1340,7 @@ static inline int usbhost_initvolume(FAR struct usbhost_state_s *priv)
   /* Decrement the reference count.  We incremented the reference count
    * above so that usbhost_destroy() could not be called.  We now have to
    * be concerned about asynchronous modification of crefs because the block
-   * driver has been registerd.
+   * driver has been registered.
    */
 
   usbhost_takesem(&priv->exclsem);
@@ -1641,7 +1627,7 @@ static FAR struct usbmsc_cbw_s *usbhost_cbwalloc(FAR struct usbhost_state_s *pri
 
   DEBUGASSERT(priv->tbuffer && priv->tbuflen >= sizeof(struct usbmsc_cbw_s));
 
-  /* Initialize the CBW sructure */
+  /* Initialize the CBW structure */
 
   cbw = (FAR struct usbmsc_cbw_s *)priv->tbuffer;
   memset(cbw, 0, sizeof(struct usbmsc_cbw_s));
@@ -1850,7 +1836,7 @@ static int usbhost_disconnected(struct usbhost_class_s *usbclass)
 
           uinfo("Queuing destruction: worker %p->%p\n", priv->work.worker, usbhost_destroy);
           DEBUGASSERT(priv->work.worker == NULL);
-          (void)work_queue(HPWORK, &priv->work, usbhost_destroy, priv, 0);
+          work_queue(HPWORK, &priv->work, usbhost_destroy, priv, 0);
        }
       else
         {
@@ -1974,7 +1960,7 @@ static int usbhost_close(FAR struct inode *inode)
  * Name: usbhost_read
  *
  * Description:
- *   Read the specified numer of sectors from the read-ahead buffer or from
+ *   Read the specified number of sectors from the read-ahead buffer or from
  *   the physical device.
  *
  ****************************************************************************/
@@ -2317,5 +2303,4 @@ int usbhost_msc_initialize(void)
   return usbhost_registerclass(&g_storage);
 }
 
-#endif  /* CONFIG_USBHOST && !CONFIG_USBHOST_BULK_DISABLE && !CONFIG_DISABLE_MOUNTPOINT */
-
+#endif /* CONFIG_USBHOST && !CONFIG_USBHOST_BULK_DISABLE && !CONFIG_DISABLE_MOUNTPOINT */

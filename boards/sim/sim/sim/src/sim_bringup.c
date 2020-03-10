@@ -79,7 +79,7 @@ int sim_bringup(void)
 #ifdef CONFIG_RAMMTD
   FAR uint8_t *ramstart;
 #endif
-  int ret;
+  int ret = OK;
 
 #ifdef CONFIG_FS_BINFS
   /* Mount the binfs file system */
@@ -116,13 +116,13 @@ int sim_bringup(void)
 #ifdef CONFIG_LIB_ZONEINFO_ROMFS
   /* Mount the TZ database */
 
-  (void)sim_zoneinfo(3);
+  sim_zoneinfo(3);
 #endif
 
 #ifdef CONFIG_EXAMPLES_GPIO
   /* Initialize simulated GPIO drivers */
 
-  (void)sim_gpio_initialize();
+  sim_gpio_initialize();
 #endif
 
 #ifdef CONFIG_RAMMTD
@@ -300,7 +300,6 @@ int sim_bringup(void)
     }
 #endif
 
-#ifdef CONFIG_WIRELESS_BLUETOOTH
 #ifdef CONFIG_BLUETOOTH_NULL
   /* Register the NULL Bluetooth network device */
 
@@ -311,18 +310,5 @@ int sim_bringup(void)
     }
 #endif
 
-  /* Initialize the Bluetooth stack (This will fail if no device has been
-   * registered).
-   */
-
-  ret = bt_netdev_register();
-  if (ret < 0)
-    {
-      syslog(LOG_ERR, "ERROR: bt_netdev_register() failed: %d\n", ret);
-    }
-
-#endif
-
-  UNUSED(ret);
-  return OK;
+  return ret;
 }

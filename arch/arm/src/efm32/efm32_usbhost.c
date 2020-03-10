@@ -44,7 +44,6 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <semaphore.h>
 #include <string.h>
 #include <errno.h>
 #include <debug.h>
@@ -723,21 +722,7 @@ static inline void efm32_modifyreg(uint32_t addr, uint32_t clrbits, uint32_t set
 
 static void efm32_takesem(sem_t *sem)
 {
-  int ret;
-
-  do
-    {
-      /* Take the semaphore (perhaps waiting) */
-
-      ret = nxsem_wait(sem);
-
-      /* The only case that an error should occur here is if the wait was
-       * awakened by a signal.
-       */
-
-      DEBUGASSERT(ret == OK || ret == -EINTR);
-    }
-  while (ret == -EINTR);
+  nxsem_wait_uninterruptible(sem);
 }
 
 /****************************************************************************
@@ -1193,13 +1178,7 @@ static int efm32_chan_wait(FAR struct efm32_usbhost_s *priv,
        * wait here.
        */
 
-      ret = nxsem_wait(&chan->waitsem);
-
-      /* nxsem_wait should succeed.  But it is possible that we could be
-       * awakened by a signal too.
-       */
-
-      DEBUGASSERT(ret == OK || ret == -EINTR);
+      nxsem_wait_uninterruptible(&chan->waitsem);
     }
   while (chan->waiter);
 
@@ -3225,7 +3204,7 @@ static inline void efm32_gint_ptxfeisr(FAR struct efm32_usbhost_s *priv)
   chan->xfrd    += chan->inflight;
   chan->inflight = 0;
 
-  /* If we have now transfered the entire buffer, then this transfer is
+  /* If we have now transferred the entire buffer, then this transfer is
    * complete (this case really should never happen because we disable
    * the PTXFE interrupt on the final packet).
    */
@@ -3763,7 +3742,7 @@ static void efm32_txfe_enable(FAR struct efm32_usbhost_s *priv, int chidx)
   uint32_t regval;
 
   /* Disable all interrupts so that we have exclusive access to the GINTMSK
-   * (it would be sufficent just to disable the GINT interrupt).
+   * (it would be sufficient just to disable the GINT interrupt).
    */
 
   flags = enter_critical_section();
@@ -5035,7 +5014,7 @@ static void efm32_vbusdrive(FAR struct efm32_usbhost_s *priv, bool state)
  * Description:
  *   Initialize/re-initialize hardware for host mode operation.  At present,
  *   this function is called only from efm32_hw_initialize().  But if OTG mode
- *   were supported, this function would also be called to swtich between
+ *   were supported, this function would also be called to switch between
  *   host and device modes on a connector ID change interrupt.
  *
  * Input Parameters:

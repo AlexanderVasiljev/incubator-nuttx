@@ -85,7 +85,6 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include <semaphore.h>
 #include <errno.h>
 #include <debug.h>
 
@@ -217,8 +216,8 @@ static const uint16_t I2CEVENT_ADDR_HDL_READ_2 = 52;       /* Read of length 2 a
 static const uint16_t I2CEVENT_EMPTY_MSG = 5000;           /* Empty message detected, param=0 */
 
 static const uint16_t I2CEVENT_ADDRESS_ACKED = 6;          /* Address has been ACKed(i.e. it's a valid address) param = address */
-static const uint16_t I2CEVENT_ADDRESS_ACKED_READ_1 = 63;  /* Event when reading single byte just after address is beeing ACKed, param = 0 */
-static const uint16_t I2CEVENT_ADDRESS_ACKED_READ_2 = 61;  /* Event when reading two bytes just after address is beeing ACKed, param = 0 */
+static const uint16_t I2CEVENT_ADDRESS_ACKED_READ_1 = 63;  /* Event when reading single byte just after address is being ACKed, param = 0 */
+static const uint16_t I2CEVENT_ADDRESS_ACKED_READ_2 = 61;  /* Event when reading two bytes just after address is being ACKed, param = 0 */
 static const uint16_t I2CEVENT_ADDRESS_ACKED_WRITE = 681;  /* Address has been ACKed(i.e. it's a valid address) in write mode and byte has been written */
 static const uint16_t I2CEVENT_ADDRESS_NACKED = 6000;      /* Address has been NACKed(i.e. it's an invalid address) param = address */
 
@@ -514,21 +513,7 @@ static inline void stm32_i2c_modifyreg(FAR struct stm32_i2c_priv_s *priv,
 
 static inline void stm32_i2c_sem_wait(FAR struct stm32_i2c_priv_s *priv)
 {
-  int ret;
-
-  do
-    {
-      /* Take the semaphore (perhaps waiting) */
-
-      ret = nxsem_wait(&priv->sem_excl);
-
-      /* The only case that an error should occur here is if the wait was
-       * awakened by a signal.
-       */
-
-      DEBUGASSERT(ret == OK || ret == -EINTR);
-    }
-  while (ret == -EINTR);
+  nxsem_wait_uninterruptible(&priv->sem_excl);
 }
 
 /************************************************************************************
@@ -594,7 +579,7 @@ static int stm32_i2c_sem_waitdone(FAR struct stm32_i2c_priv_s *priv)
     {
       /* Get the current time */
 
-      (void)clock_gettime(CLOCK_REALTIME, &abstime);
+      clock_gettime(CLOCK_REALTIME, &abstime);
 
       /* Calculate a time in the future */
 
@@ -623,12 +608,11 @@ static int stm32_i2c_sem_waitdone(FAR struct stm32_i2c_priv_s *priv)
 
       /* Wait until either the transfer is complete or the timeout expires */
 
-      ret = nxsem_timedwait(&priv->sem_isr, &abstime);
-      if (ret < 0 && ret != -EINTR)
+      ret = nxsem_timedwait_uninterruptible(&priv->sem_isr, &abstime);
+      if (ret < 0)
         {
           /* Break out of the loop on irrecoverable errors.  This would
            * include timeouts and mystery errors reported by nxsem_timedwait.
-           * NOTE that we try again if we are awakened by a signal (EINTR).
            */
 
           break;

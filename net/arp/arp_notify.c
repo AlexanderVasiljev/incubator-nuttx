@@ -39,8 +39,6 @@
 
 #include <nuttx/config.h>
 
-#include <time.h>
-#include <semaphore.h>
 #include <errno.h>
 #include <assert.h>
 #include <debug.h>
@@ -48,7 +46,6 @@
 #include <netinet/in.h>
 
 #include <nuttx/irq.h>
-#include <nuttx/semaphore.h>
 #include <nuttx/net/net.h>
 
 #include "arp/arp.h"
@@ -94,7 +91,7 @@ void arp_wait_setup(in_addr_t ipaddr, FAR struct arp_notify_s *notify)
    * priority inheritance enabled.
    */
 
-  (void)nxsem_init(&notify->nt_sem, 0, 0);
+  nxsem_init(&notify->nt_sem, 0, 0);
   nxsem_setprotocol(&notify->nt_sem, SEM_PRIO_NONE);
 
   /* Add the wait structure to the list with interrupts disabled */
@@ -150,7 +147,7 @@ int arp_wait_cancel(FAR struct arp_notify_s *notify)
     }
 
   leave_critical_section(flags);
-  (void)nxsem_destroy(&notify->nt_sem);
+  nxsem_destroy(&notify->nt_sem);
   return ret;
 }
 
@@ -168,40 +165,13 @@ int arp_wait_cancel(FAR struct arp_notify_s *notify)
  *
  ****************************************************************************/
 
-int arp_wait(FAR struct arp_notify_s *notify, FAR struct timespec *timeout)
+int arp_wait(FAR struct arp_notify_s *notify, unsigned int timeout)
 {
-  struct timespec abstime;
-  irqstate_t flags;
-  int errcode;
   int ret;
 
-  /* And wait for the ARP response (or a timeout).  Interrupts will be re-
-   * enabled while we wait.
-   */
+  /* And wait for the ARP response (or a timeout). */
 
-  flags = enter_critical_section();
-  DEBUGVERIFY(clock_gettime(CLOCK_REALTIME, &abstime));
-
-  abstime.tv_sec  += timeout->tv_sec;
-  abstime.tv_nsec += timeout->tv_nsec;
-  if (abstime.tv_nsec >= 1000000000)
-    {
-      abstime.tv_sec++;
-      abstime.tv_nsec -= 1000000000;
-    }
-
-  /* Wait to get either the correct response or a timeout. */
-
-  do
-    {
-      /* The only errors that we expect would be if the abstime timeout
-       * expires or if the wait were interrupted by a signal.
-       */
-
-      ret     = net_timedwait(&notify->nt_sem, &abstime);
-      errcode = ((ret < 0) ? -ret : 0);
-    }
-  while (ret < 0 && errcode == EINTR);
+  net_timedwait_uninterruptible(&notify->nt_sem, timeout);
 
   /* Then get the real result of the transfer */
 
@@ -211,11 +181,7 @@ int arp_wait(FAR struct arp_notify_s *notify, FAR struct timespec *timeout)
    * head of the list).
    */
 
-  (void)arp_wait_cancel(notify);
-
-  /* Re-enable interrupts and return the result of the wait */
-
-  leave_critical_section(flags);
+  arp_wait_cancel(notify);
   return ret;
 }
 

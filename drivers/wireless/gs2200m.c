@@ -34,6 +34,14 @@
  ****************************************************************************/
 
 /****************************************************************************
+ * gs2200m driver.
+ *
+ * See "GS2200MS2W Adapter Command Reference Guide" for the explanation
+ * of AT commands. You can find the document at:
+ * https://www.telit.com/m2m-iot-products/wifi-bluetooth-modules/wi-fi-gs2200m/
+ ****************************************************************************/
+
+/****************************************************************************
  * Included Files
  ****************************************************************************/
 
@@ -47,7 +55,6 @@
 #include <errno.h>
 #include <debug.h>
 #include <poll.h>
-#include <semaphore.h>
 
 #include <nuttx/ascii.h>
 #include <nuttx/arch.h>
@@ -626,7 +633,7 @@ static bool _copy_data_from_pkt(FAR struct gs2200m_dev_s *dev,
       goto errout;
     }
 
-  /* Copy the pkt data to msg buffer upto MIN(request - len, remain) */
+  /* Copy the pkt data to msg buffer up to MIN(request - len, remain) */
 
   len = MIN(msg->reqlen - msg->len, pkt_dat->remain);
   off = pkt_dat->len - pkt_dat->remain;
@@ -667,21 +674,7 @@ errout:
 
 static void gs2200m_lock(FAR struct gs2200m_dev_s *dev)
 {
-  int ret;
-
-  do
-    {
-      /* Take the semaphore (perhaps waiting) */
-
-      ret = nxsem_wait(&dev->dev_sem);
-
-      /* The only case that an error should occur here is if the wait was
-       * awakened by a signal.
-       */
-
-      DEBUGASSERT(ret == OK || ret == -EINTR);
-    }
-  while (ret == -EINTR);
+  nxsem_wait_uninterruptible(&dev->dev_sem);
 }
 
 /****************************************************************************
@@ -760,7 +753,7 @@ static ssize_t gs2200m_write(FAR struct file *filep, FAR const char *buffer,
 
 static int gs2200m_spi_init(FAR struct gs2200m_dev_s *dev)
 {
-  (void)SPI_LOCK(dev->spi, true);
+  SPI_LOCK(dev->spi, true);
 
   /* SPI settings (mode1/8bits/max freq) */
 
@@ -768,7 +761,7 @@ static int gs2200m_spi_init(FAR struct gs2200m_dev_s *dev)
   SPI_SETBITS(dev->spi, 8);
   SPI_SETFREQUENCY(dev->spi, SPI_MAXFREQ);
 
-  (void)SPI_LOCK(dev->spi, false);
+  SPI_LOCK(dev->spi, false);
   return 0;
 }
 
@@ -986,9 +979,9 @@ retry:
   if (WR_RESP_NOK == res[1])
     {
       wlwarn("*** warning: WR_RESP_NOK received.. retrying. (n=%d) \n", n);
-      nxsig_usleep(100 * 1000);
+      nxsig_usleep(10 * 1000);
 
-      if (100 < n)
+      if (9 < n)
         {
           return SPI_TIMEOUT;
         }
@@ -1605,7 +1598,7 @@ static enum pkt_type_e gs2200m_join_network(FAR struct gs2200m_dev_s *dev,
     }
   else
     {
-      /* In AP mode, we can specify chennel to use */
+      /* In AP mode, we can specify channel to use */
 
       snprintf(cmd, sizeof(cmd), "AT+WA=%s,,%d\r\n", ssid, ch);
     }
@@ -1876,6 +1869,15 @@ static enum pkt_type_e gs2200m_send_bulk(FAR struct gs2200m_dev_s *dev,
   /* Send the bulk data */
 
   s = gs2200m_hal_write(dev, (char *)dev->tx_buff, msg->len + bulk_hdr_size);
+
+  if (s == SPI_TIMEOUT)
+    {
+      /* In case of SPI_TIMEOUT, return OK with 0 bytes sent */
+
+      s = SPI_OK;
+      msg->len = 0;
+    }
+
   r = _spi_err_to_pkt_type(s);
 
   return r;
@@ -1965,10 +1967,26 @@ static enum pkt_type_e gs2200m_set_gpio(FAR struct gs2200m_dev_s *dev,
 #endif
 
 /****************************************************************************
+ * Name: gs2200m_set_loglevel
+ * NOTE: See 11.3.1 Log Level
+ ****************************************************************************/
+
+#if CONFIG_WL_GS2200M_LOGLEVEL > 0
+static enum pkt_type_e gs2200m_set_loglevel(FAR struct gs2200m_dev_s *dev,
+                                            int level)
+{
+  char cmd[16];
+
+  snprintf(cmd, sizeof(cmd), "AT+LOGLVL=%d\r\n", level);
+  return gs2200m_send_cmd(dev, cmd, NULL);
+}
+#endif
+
+/****************************************************************************
  * Name: gs2200m_get_version
  ****************************************************************************/
 
-#ifdef CHECK_VERSION
+#ifdef CONFIG_WL_GS2200M_CHECK_VERSION
 static enum pkt_type_e gs2200m_get_version(FAR struct gs2200m_dev_s *dev)
 {
   char cmd[16];
@@ -2280,7 +2298,7 @@ static int gs2200m_ioctl_accept(FAR struct gs2200m_dev_s *dev,
   msg->type = TYPE_OK;
   msg->cid  = c_cid; /* NOTE: override new client cid */
 
-  /* Disalbe accept in progress */
+  /* Disable accept in progress */
 
   _enable_cid(&dev->aip_cid_bits, c_cid, false);
 
@@ -2485,11 +2503,7 @@ static int gs2200m_ioctl_ifreq(FAR struct gs2200m_dev_s *dev,
       strncpy(addr[1], inet_ntoa(in[1]), sizeof(addr[1]));
       strncpy(addr[2], inet_ntoa(in[2]), sizeof(addr[2]));
 
-      (void)gs2200m_set_addresses(dev,
-                                  addr[0],
-                                  addr[1],
-                                  addr[2]
-                                  );
+      gs2200m_set_addresses(dev, addr[0], addr[1], addr[2]);
     }
 
   wlinfo("+++ end: \n");
@@ -2829,7 +2843,7 @@ static int gs2200m_irq(int irq, FAR void *context, FAR void *arg)
   DEBUGASSERT(arg != NULL);
   dev = (FAR struct gs2200m_dev_s *)arg;
 
-  (void)dev->lower->dready(&ec);
+  dev->lower->dready(&ec);
   ASSERT(0 < ec);
 
   wlinfo(">>>> \n");
@@ -2864,7 +2878,7 @@ static int gs2200m_start(FAR struct gs2200m_dev_s *dev)
 
   while (dev->lower->dready(NULL))
     {
-      (void)gs2200m_recv_pkt(dev, NULL);
+      gs2200m_recv_pkt(dev, NULL);
       break;
     }
 
@@ -2877,7 +2891,13 @@ static int gs2200m_start(FAR struct gs2200m_dev_s *dev)
   t = gs2200m_enable_echo(dev, 0);
   ASSERT(TYPE_OK == t);
 
-#ifdef CHECK_VERSION
+#if CONFIG_WL_GS2200M_LOGLEVEL > 0
+  /* Set log level */
+  t = gs2200m_set_loglevel(dev, CONFIG_WL_GS2200M_LOGLEVEL);
+  ASSERT(TYPE_OK == t);
+#endif
+
+#ifdef CONFIG_WL_GS2200M_CHECK_VERSION
   /* Version */
 
   t = gs2200m_get_version(dev);

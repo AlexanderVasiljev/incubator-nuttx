@@ -873,7 +873,7 @@ static void stm32l4_dma12_dump(DMA_HANDLE handle,
 }
 #endif
 
-#endif  /* CONFIG_STM32L4_DMA1 || CONFIG_STM32L4_DMA2 */
+#endif /* CONFIG_STM32L4_DMA1 || CONFIG_STM32L4_DMA2 */
 
 /****************************************************************************
  * Name: stm32l4_dmamux_sample
@@ -960,8 +960,8 @@ void weak_function up_dma_initialize(void)
 
       /* Attach standard DMA interrupt vectors */
 
-      (void)irq_attach(dmachan->irq, g_dma_ops[controller].dma_interrupt,
-                       dmachan);
+      irq_attach(dmachan->irq, g_dma_ops[controller].dma_interrupt,
+                 dmachan);
 
       /* Disable the DMA channel */
 

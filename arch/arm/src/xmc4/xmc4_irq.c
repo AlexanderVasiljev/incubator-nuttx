@@ -163,7 +163,7 @@ static void xmc4_dump_nvic(const char *msg, int irq)
  *       xmc4_dbgmonitor, xmc4_pendsv, xmc4_reserved
  *
  * Description:
- *   Handlers for various execptions.  None are handled and all are fatal
+ *   Handlers for various exceptions.  None are handled and all are fatal
  *   error conditions.  The only advantage these provided over the default
  *   unexpected interrupt handler is that they provide a diagnostic output.
  *
@@ -172,7 +172,7 @@ static void xmc4_dump_nvic(const char *msg, int irq)
 #ifdef CONFIG_DEBUG_FEATURES
 static int xmc4_nmi(int irq, FAR void *context, FAR void *arg)
 {
-  (void)up_irq_save();
+  up_irq_save();
   _err("PANIC!!! NMI received\n");
   PANIC();
   return 0;
@@ -180,7 +180,7 @@ static int xmc4_nmi(int irq, FAR void *context, FAR void *arg)
 
 static int xmc4_busfault(int irq, FAR void *context, FAR void *arg)
 {
-  (void)up_irq_save();
+  up_irq_save();
   _err("PANIC!!! Bus fault received\n");
   PANIC();
   return 0;
@@ -188,7 +188,7 @@ static int xmc4_busfault(int irq, FAR void *context, FAR void *arg)
 
 static int xmc4_usagefault(int irq, FAR void *context, FAR void *arg)
 {
-  (void)up_irq_save();
+  up_irq_save();
   _err("PANIC!!! Usage fault received\n");
   PANIC();
   return 0;
@@ -196,7 +196,7 @@ static int xmc4_usagefault(int irq, FAR void *context, FAR void *arg)
 
 static int xmc4_pendsv(int irq, FAR void *context, FAR void *arg)
 {
-  (void)up_irq_save();
+  up_irq_save();
   _err("PANIC!!! PendSV received\n");
   PANIC();
   return 0;
@@ -204,7 +204,7 @@ static int xmc4_pendsv(int irq, FAR void *context, FAR void *arg)
 
 static int xmc4_dbgmonitor(int irq, FAR void *context, FAR void *arg)
 {
-  (void)up_irq_save();
+  up_irq_save();
   _err("PANIC!!! Debug Monitor received\n");
   PANIC();
   return 0;
@@ -212,7 +212,7 @@ static int xmc4_dbgmonitor(int irq, FAR void *context, FAR void *arg)
 
 static int xmc4_reserved(int irq, FAR void *context, FAR void *arg)
 {
-  (void)up_irq_save();
+  up_irq_save();
   _err("PANIC!!! Reserved interrupt\n");
   PANIC();
   return 0;
@@ -337,7 +337,7 @@ void up_irqinitialize(void)
    *
    *  0 -> 32 interrupt lines, 1 enable register,   8 priority registers
    *  1 -> 64 "       " "   ", 2 enable registers, 16 priority registers
-   *  2 -> 96 "       " "   ", 3 enable regsiters, 24 priority registers
+   *  2 -> 96 "       " "   ", 3 enable registers, 24 priority registers
    *  ...
    */
 

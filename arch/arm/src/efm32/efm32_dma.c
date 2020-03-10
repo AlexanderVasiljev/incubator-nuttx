@@ -42,12 +42,12 @@
 #include <sys/types.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include <semaphore.h>
 #include <assert.h>
 #include <errno.h>
 
 #include <nuttx/irq.h>
 #include <nuttx/arch.h>
+#include <nuttx/semaphore.h>
 
 #include "up_arch.h"
 #include "hardware/efm32_cmu.h"
@@ -63,8 +63,9 @@
 #define ALIGN_UP(v,m)   (((v) + (m)) & ~m)
 
 /****************************************************************************
- * Public Types
+ * Private Types
  ****************************************************************************/
+
 /* This structure describes one DMA channel */
 
 struct dma_channel_s
@@ -297,7 +298,7 @@ void weak_function up_dma_initialize(void)
 
   /* Attach DMA interrupt vector */
 
-  (void)irq_attach(EFM32_IRQ_DMA, efm32_dmac_interrupt, NULL);
+  irq_attach(EFM32_IRQ_DMA, efm32_dmac_interrupt, NULL);
 
   /* Enable the DMA controller */
 
@@ -336,43 +337,18 @@ DMA_HANDLE efm32_dmachannel(void)
   struct dma_channel_s *dmach;
   unsigned int chndx;
   uint32_t bit;
-  int ret;
 
-  /* Take a count from from the channel counting semaphore.  We may block
+  /* Take a count from the channel counting semaphore.  We may block
    * if there are no free channels.  When we get the count, then we can
    * be assured that a channel is available in the channel list and is
    * reserved for us.
    */
 
-  do
-    {
-      /* Take the semaphore (perhaps waiting) */
-
-      ret = nxsem_wait(&g_dmac.chansem);
-
-      /* The only case that an error should occur here is if the wait was
-       * awakened by a signal.
-       */
-
-      DEBUGASSERT(ret == OK || ret == -EINTR);
-    }
-  while (ret == -EINTR);
+  nxsem_wait_uninterruptible(&g_dmac.chansem);
 
   /* Get exclusive access to the DMA channel list */
 
-  do
-    {
-      /* Take the semaphore (perhaps waiting) */
-
-      ret = nxsem_wait(&g_dmac.exclsem);
-
-      /* The only case that an error should occur here is if the wait was
-       * awakened by a signal.
-       */
-
-      DEBUGASSERT(ret == OK || ret == -EINTR);
-    }
-  while (ret == -EINTR);
+  nxsem_wait_uninterruptible(&g_dmac.exclsem);
 
   /* Search for an available DMA channel */
 

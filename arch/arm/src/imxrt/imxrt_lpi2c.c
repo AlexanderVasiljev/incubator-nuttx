@@ -44,7 +44,6 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include <semaphore.h>
 #include <errno.h>
 #include <debug.h>
 
@@ -130,16 +129,6 @@
 #define LPI2C_MASTER    1
 #define LPI2C_SLAVE     2
 
-#define MKI2C_OUTPUT(p) (((p) & GPIO_PADMUX_MASK) | \
-                         IOMUX_OPENDRAIN | IOMUX_DRIVE_33OHM | \
-                         IOMUX_SLEW_SLOW | (5 << GPIO_ALT_SHIFT) | \
-                         IOMUX_PULL_NONE | GPIO_OUTPUT_ONE)
-
-#define MKI2C_INPUT(p) (((p) & GPIO_PADMUX_MASK) | \
-                        IOMUX_DRIVE_HIZ | IOMUX_SLEW_SLOW | \
-                        IOMUX_CMOS_INPUT | (5 << GPIO_ALT_SHIFT) | \
-                        IOMUX_PULL_NONE)
-
 /****************************************************************************
  * Private Types
  ****************************************************************************/
@@ -186,8 +175,12 @@ struct imxrt_lpi2c_config_s
   uint16_t busy_idle;         /* LPI2C Bus Idle Timeout */
   uint8_t filtscl;            /* Glitch Filter for SCL pin */
   uint8_t filtsda;            /* Glitch Filter for SDA pin */
-  uint32_t scl_pin;           /* GPIO configuration for SCL as SCL */
-  uint32_t sda_pin;           /* GPIO configuration for SDA as SDA */
+  uint32_t scl_pin;           /* Peripheral configuration for SCL as SCL */
+  uint32_t sda_pin;           /* Peripheral configuration for SDA as SDA */
+#if defined(CONFIG_I2C_RESET)
+  uint32_t reset_scl_pin;     /* GPIO configuration for SCL as SCL */
+  uint32_t reset_sda_pin;     /* GPIO configuration for SDA as SDA */
+#endif
   uint8_t mode;               /* Master or Slave mode */
 #ifndef CONFIG_I2C_POLLED
   uint32_t irq;               /* Event IRQ */
@@ -318,136 +311,152 @@ static const struct i2c_ops_s imxrt_lpi2c_ops =
 #ifdef CONFIG_IMXRT_LPI2C1
 static const struct imxrt_lpi2c_config_s imxrt_lpi2c1_config =
 {
-  .base       = IMXRT_LPI2C1_BASE,
-  .busy_idle  = CONFIG_LPI2C1_BUSYIDLE,
-  .filtscl    = CONFIG_LPI2C1_FILTSCL,
-  .filtsda    = CONFIG_LPI2C1_FILTSDA,
-  .scl_pin    = GPIO_LPI2C1_SCL,
-  .sda_pin    = GPIO_LPI2C1_SDA,
+  .base          = IMXRT_LPI2C1_BASE,
+  .busy_idle     = CONFIG_LPI2C1_BUSYIDLE,
+  .filtscl       = CONFIG_LPI2C1_FILTSCL,
+  .filtsda       = CONFIG_LPI2C1_FILTSDA,
+  .scl_pin       = GPIO_LPI2C1_SCL,
+  .sda_pin       = GPIO_LPI2C1_SDA,
+#if defined(CONFIG_I2C_RESET)
+  .reset_scl_pin = GPIO_LPI2C1_SCL_RESET,
+  .reset_sda_pin = GPIO_LPI2C1_SDA_RESET,
+#endif
 #ifndef CONFIG_I2C_SLAVE
-  .mode       = LPI2C_MASTER,
+  .mode          = LPI2C_MASTER,
 #else
-  .mode       = LPI2C_SLAVE,
+  .mode          = LPI2C_SLAVE,
 #endif
 #ifndef CONFIG_I2C_POLLED
-  .irq        = IMXRT_IRQ_LPI2C1,
+  .irq           = IMXRT_IRQ_LPI2C1,
 #endif
 };
 
 static struct imxrt_lpi2c_priv_s imxrt_lpi2c1_priv =
 {
-  .ops        = &imxrt_lpi2c_ops,
-  .config     = &imxrt_lpi2c1_config,
-  .refs       = 0,
-  .intstate   = INTSTATE_IDLE,
-  .msgc       = 0,
-  .msgv       = NULL,
-  .ptr        = NULL,
-  .dcnt       = 0,
-  .flags      = 0,
-  .status     = 0
+  .ops           = &imxrt_lpi2c_ops,
+  .config        = &imxrt_lpi2c1_config,
+  .refs          = 0,
+  .intstate      = INTSTATE_IDLE,
+  .msgc          = 0,
+  .msgv          = NULL,
+  .ptr           = NULL,
+  .dcnt          = 0,
+  .flags         = 0,
+  .status        = 0
 };
 #endif
 
 #ifdef CONFIG_IMXRT_LPI2C2
 static const struct imxrt_lpi2c_config_s imxrt_lpi2c2_config =
 {
-  .base       = IMXRT_LPI2C2_BASE,
-  .busy_idle  = CONFIG_LPI2C2_BUSYIDLE,
-  .filtscl    = CONFIG_LPI2C2_FILTSCL,
-  .filtsda    = CONFIG_LPI2C2_FILTSDA,
-  .scl_pin    = GPIO_LPI2C2_SCL,
-  .sda_pin    = GPIO_LPI2C2_SDA,
+  .base          = IMXRT_LPI2C2_BASE,
+  .busy_idle     = CONFIG_LPI2C2_BUSYIDLE,
+  .filtscl       = CONFIG_LPI2C2_FILTSCL,
+  .filtsda       = CONFIG_LPI2C2_FILTSDA,
+  .scl_pin       = GPIO_LPI2C2_SCL,
+  .sda_pin       = GPIO_LPI2C2_SDA,
+#if defined(CONFIG_I2C_RESET)
+  .reset_scl_pin = GPIO_LPI2C2_SCL_RESET,
+  .reset_sda_pin = GPIO_LPI2C2_SDA_RESET,
+#endif
 #ifndef CONFIG_I2C_SLAVE
-  .mode       = LPI2C_MASTER,
+  .mode          = LPI2C_MASTER,
 #else
-  .mode       = LPI2C_SLAVE,
+  .mode          = LPI2C_SLAVE,
 #endif
 #ifndef CONFIG_I2C_POLLED
-  .irq        = IMXRT_IRQ_LPI2C2,
+  .irq           = IMXRT_IRQ_LPI2C2,
 #endif
 };
 
 static struct imxrt_lpi2c_priv_s imxrt_lpi2c2_priv =
 {
-  .ops        = &imxrt_lpi2c_ops,
-  .config     = &imxrt_lpi2c2_config,
-  .refs       = 0,
-  .intstate   = INTSTATE_IDLE,
-  .msgc       = 0,
-  .msgv       = NULL,
-  .ptr        = NULL,
-  .dcnt       = 0,
-  .flags      = 0,
-  .status     = 0
+  .ops           = &imxrt_lpi2c_ops,
+  .config        = &imxrt_lpi2c2_config,
+  .refs          = 0,
+  .intstate      = INTSTATE_IDLE,
+  .msgc          = 0,
+  .msgv          = NULL,
+  .ptr           = NULL,
+  .dcnt          = 0,
+  .flags         = 0,
+  .status        = 0
 };
 #endif
 
 #ifdef CONFIG_IMXRT_LPI2C3
 static const struct imxrt_lpi2c_config_s imxrt_lpi2c3_config =
 {
-  .base       = IMXRT_LPI2C3_BASE,
-  .busy_idle  = CONFIG_LPI2C3_BUSYIDLE,
-  .filtscl    = CONFIG_LPI2C3_FILTSCL,
-  .filtsda    = CONFIG_LPI2C3_FILTSDA,
-  .scl_pin    = GPIO_LPI2C3_SCL,
-  .sda_pin    = GPIO_LPI2C3_SDA,
+  .base          = IMXRT_LPI2C3_BASE,
+  .busy_idle     = CONFIG_LPI2C3_BUSYIDLE,
+  .filtscl       = CONFIG_LPI2C3_FILTSCL,
+  .filtsda       = CONFIG_LPI2C3_FILTSDA,
+  .scl_pin       = GPIO_LPI2C3_SCL,
+  .sda_pin       = GPIO_LPI2C3_SDA,
+#if defined(CONFIG_I2C_RESET)
+  .reset_scl_pin = GPIO_LPI2C3_SCL_RESET,
+  .reset_sda_pin = GPIO_LPI2C3_SDA_RESET,
+#endif
 #ifndef CONFIG_I2C_SLAVE
-  .mode       = LPI2C_MASTER,
+  .mode          = LPI2C_MASTER,
 #else
-  .mode       = LPI2C_SLAVE,
+  .mode          = LPI2C_SLAVE,
 #endif
 #ifndef CONFIG_I2C_POLLED
-  .irq        = IMXRT_IRQ_LPI2C3,
+  .irq           = IMXRT_IRQ_LPI2C3,
 #endif
 };
 
 static struct imxrt_lpi2c_priv_s imxrt_lpi2c3_priv =
 {
-  .ops        = &imxrt_lpi2c_ops,
-  .config     = &imxrt_lpi2c3_config,
-  .refs       = 0,
-  .intstate   = INTSTATE_IDLE,
-  .msgc       = 0,
-  .msgv       = NULL,
-  .ptr        = NULL,
-  .dcnt       = 0,
-  .flags      = 0,
-  .status     = 0
+  .ops           = &imxrt_lpi2c_ops,
+  .config        = &imxrt_lpi2c3_config,
+  .refs          = 0,
+  .intstate      = INTSTATE_IDLE,
+  .msgc          = 0,
+  .msgv          = NULL,
+  .ptr           = NULL,
+  .dcnt          = 0,
+  .flags         = 0,
+  .status        = 0
 };
 #endif
 
 #ifdef CONFIG_IMXRT_LPI2C4
 static const struct imxrt_lpi2c_config_s imxrt_lpi2c4_config =
 {
-  .base       = IMXRT_LPI2C4_BASE,
-  .busy_idle  = CONFIG_LPI2C4_BUSYIDLE,
-  .filtscl    = CONFIG_LPI2C4_FILTSCL,
-  .filtsda    = CONFIG_LPI2C4_FILTSDA,
-  .scl_pin    = GPIO_LPI2C4_SCL,
-  .sda_pin    = GPIO_LPI2C4_SDA,
+  .base          = IMXRT_LPI2C4_BASE,
+  .busy_idle     = CONFIG_LPI2C4_BUSYIDLE,
+  .filtscl       = CONFIG_LPI2C4_FILTSCL,
+  .filtsda       = CONFIG_LPI2C4_FILTSDA,
+  .scl_pin       = GPIO_LPI2C4_SCL,
+  .sda_pin       = GPIO_LPI2C4_SDA,
+#if defined(CONFIG_I2C_RESET)
+  .reset_scl_pin = GPIO_LPI2C4_SCL_RESET,
+  .reset_sda_pin = GPIO_LPI2C4_SDA_RESET,
+#endif
 #ifndef CONFIG_I2C_SLAVE
-  .mode       = LPI2C_MASTER,
+  .mode          = LPI2C_MASTER,
 #else
-  .mode       = LPI2C_SLAVE,
+  .mode          = LPI2C_SLAVE,
 #endif
 #ifndef CONFIG_I2C_POLLED
-  .irq        = IMXRT_IRQ_LPI2C4,
+  .irq           = IMXRT_IRQ_LPI2C4,
 #endif
 };
 
 static struct imxrt_lpi2c_priv_s imxrt_lpi2c4_priv =
 {
-  .ops        = &imxrt_lpi2c_ops,
-  .config     = &imxrt_lpi2c4_config,
-  .refs       = 0,
-  .intstate   = INTSTATE_IDLE,
-  .msgc       = 0,
-  .msgv       = NULL,
-  .ptr        = NULL,
-  .dcnt       = 0,
-  .flags      = 0,
-  .status     = 0
+  .ops           = &imxrt_lpi2c_ops,
+  .config        = &imxrt_lpi2c4_config,
+  .refs          = 0,
+  .intstate      = INTSTATE_IDLE,
+  .msgc          = 0,
+  .msgv          = NULL,
+  .ptr           = NULL,
+  .dcnt          = 0,
+  .flags         = 0,
+  .status        = 0
 };
 #endif
 
@@ -508,21 +517,7 @@ static inline void imxrt_lpi2c_modifyreg(FAR struct imxrt_lpi2c_priv_s *priv,
 
 static inline void imxrt_lpi2c_sem_wait(FAR struct imxrt_lpi2c_priv_s *priv)
 {
-  int ret;
-
-  do
-    {
-      /* Take the semaphore (perhaps waiting) */
-
-      ret = nxsem_wait(&priv->sem_excl);
-
-      /* The only case that an error should occur here is if the wait was
-       * awakened by a signal.
-       */
-
-      DEBUGASSERT(ret == OK || ret == -EINTR);
-    }
-  while (ret == -EINTR);
+  nxsem_wait_uninterruptible(&priv->sem_excl);
 }
 
 /****************************************************************************
@@ -608,7 +603,7 @@ static inline int imxrt_lpi2c_sem_waitdone(FAR struct imxrt_lpi2c_priv_s *priv)
     {
       /* Get the current time */
 
-      (void)clock_gettime(CLOCK_REALTIME, &abstime);
+      clock_gettime(CLOCK_REALTIME, &abstime);
 
       /* Calculate a time in the future */
 
@@ -637,12 +632,11 @@ static inline int imxrt_lpi2c_sem_waitdone(FAR struct imxrt_lpi2c_priv_s *priv)
 
       /* Wait until either the transfer is complete or the timeout expires */
 
-      ret = nxsem_timedwait(&priv->sem_isr, &abstime);
-      if (ret < 0 && ret != -EINTR)
+      ret = nxsem_timedwait_uninterruptible(&priv->sem_isr, &abstime);
+      if (ret < 0)
         {
           /* Break out of the loop on irrecoverable errors.  This would
            * include timeouts and mystery errors reported by nxsem_timedwait.
-           * NOTE that we try again if we are awakened by a signal (EINTR).
            */
 
           break;
@@ -1124,7 +1118,8 @@ static void imxrt_lpi2c_setclock(FAR struct imxrt_lpi2c_priv_s *priv,
                 }
             }
 
-          imxrt_lpi2c_modifyreg(priv, IMXRT_LPI2C_MCFGR1_OFFSET, 0,
+          imxrt_lpi2c_modifyreg(priv, IMXRT_LPI2C_MCFGR1_OFFSET,
+                                LPI2C_MCFGR1_PRESCALE_MASK,
                                 LPI2C_MCFGR1_PRESCALE(best_prescale));
 
           /* Re-enable LPI2C if it was enabled previously */
@@ -1235,11 +1230,17 @@ static int imxrt_lpi2c_isr_process(struct imxrt_lpi2c_priv_s *priv)
 
   imxrt_lpi2c_tracenew(priv, status);
 
-  /* Continue with either sending or reading data */
+  /* After an error we can get an SDF  */
+
+  if (priv->intstate == INTSTATE_DONE && (status & LPI2C_MSR_SDF) != 0)
+    {
+      imxrt_lpi2c_traceevent(priv, I2CEVENT_STOP, 0);
+      imxrt_lpi2c_putreg(priv, IMXRT_LPI2C_MSR_OFFSET, LPI2C_MSR_SDF);
+    }
 
   /* Check if there is more bytes to send */
 
-  if (((priv->flags & I2C_M_READ) == 0) && (status & LPI2C_MSR_TDF) != 0)
+  else if (((priv->flags & I2C_M_READ) == 0) && (status & LPI2C_MSR_TDF) != 0)
     {
       if (priv->dcnt > 0)
         {
@@ -1267,7 +1268,7 @@ static int imxrt_lpi2c_isr_process(struct imxrt_lpi2c_priv_s *priv)
           imxrt_lpi2c_traceevent(priv, I2CEVENT_RCVBYTE, priv->dcnt);
 
           /* No interrupts or contex switches should occur in the following
-           * seuence. Otherwise, additional bytes may be sent by the device.
+           * sequence. Otherwise, additional bytes may be sent by the device.
            */
 
 #ifdef CONFIG_I2C_POLLED
@@ -1298,13 +1299,14 @@ static int imxrt_lpi2c_isr_process(struct imxrt_lpi2c_priv_s *priv)
     {
       if (priv->msgc > 0 && priv->msgv != NULL)
         {
-          priv->ptr        = priv->msgv->buffer;
-          priv->dcnt    = priv->msgv->length;
+          priv->ptr      = priv->msgv->buffer;
+          priv->dcnt     = priv->msgv->length;
           priv->flags    = priv->msgv->flags;
 
           if ((priv->msgv->flags & I2C_M_NOSTART) == 0)
             {
-              imxrt_lpi2c_traceevent(priv, I2CEVENT_STARTRESTART, priv->msgc);
+              imxrt_lpi2c_traceevent(priv, I2CEVENT_STARTRESTART,
+                                     priv->msgc);
               imxrt_lpi2c_sendstart(priv, priv->msgv->addr);
             }
           else
@@ -1354,14 +1356,19 @@ static int imxrt_lpi2c_isr_process(struct imxrt_lpi2c_priv_s *priv)
 #ifndef CONFIG_I2C_POLLED
           if (priv->intstate == INTSTATE_WAITING)
             {
+              /* Update Status once at the end */
+
+              priv->status = status;
+
               /* inform the thread that transfer is complete
                * and wake it up
                */
 
-              sem_post(&priv->sem_isr);
+              nxsem_post(&priv->sem_isr);
               priv->intstate = INTSTATE_DONE;
             }
 #else
+          priv->status = status;
           priv->intstate = INTSTATE_DONE;
 #endif
           /* Mark that this transaction stopped */
@@ -1402,19 +1409,23 @@ static int imxrt_lpi2c_isr_process(struct imxrt_lpi2c_priv_s *priv)
 #ifndef CONFIG_I2C_POLLED
           if (priv->intstate == INTSTATE_WAITING)
             {
+              /* Update Status once at the end */
+
+              priv->status = status;
+
               /* inform the thread that transfer is complete
                * and wake it up
                */
 
-              sem_post(&priv->sem_isr);
+              nxsem_post(&priv->sem_isr);
               priv->intstate = INTSTATE_DONE;
             }
 #else
+          priv->status = status;
           priv->intstate = INTSTATE_DONE;
 #endif
     }
 
-  priv->status = status;
   return OK;
 }
 
@@ -1506,8 +1517,8 @@ static int imxrt_lpi2c_init(FAR struct imxrt_lpi2c_priv_s *priv)
 
   /* Configure pins */
 
-  (void)imxrt_config_gpio(priv->config->scl_pin);
-  (void)imxrt_config_gpio(priv->config->sda_pin);
+  imxrt_config_gpio(priv->config->scl_pin);
+  imxrt_config_gpio(priv->config->sda_pin);
 
   /* Enable power and reset the peripheral */
 
@@ -1754,8 +1765,8 @@ static int imxrt_lpi2c_reset(FAR struct i2c_master_s *dev)
 
   /* Use GPIO configuration to un-wedge the bus */
 
-  scl_gpio = MKI2C_OUTPUT(priv->config->scl_pin);
-  sda_gpio = MKI2C_OUTPUT(priv->config->sda_pin);
+  scl_gpio = priv->config->reset_scl_pin | GPIO_SION_ENABLE;
+  sda_gpio = priv->config->reset_sda_pin | GPIO_SION_ENABLE;
 
   imxrt_config_gpio(scl_gpio);
   imxrt_config_gpio(sda_gpio);
@@ -1817,11 +1828,6 @@ static int imxrt_lpi2c_reset(FAR struct i2c_master_s *dev)
   up_udelay(10);
   imxrt_gpio_write(sda_gpio, 1);
   up_udelay(10);
-
-  /* Revert the GPIO configuration. */
-
-  sda_gpio = MKI2C_INPUT(sda_gpio);
-  scl_gpio = MKI2C_INPUT(scl_gpio);
 
   imxrt_config_gpio(sda_gpio);
   imxrt_config_gpio(scl_gpio);

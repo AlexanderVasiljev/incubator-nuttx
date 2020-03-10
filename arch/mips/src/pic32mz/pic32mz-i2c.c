@@ -44,7 +44,6 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include <semaphore.h>
 #include <errno.h>
 #include <debug.h>
 
@@ -632,21 +631,7 @@ static inline void pic32mz_i2c_modifyreg(FAR struct pic32mz_i2c_priv_s *priv,
 
 static inline void pic32mz_i2c_sem_wait(FAR struct pic32mz_i2c_priv_s *priv)
 {
-  int ret;
-
-  do
-    {
-      /* Take the semaphore (perhaps waiting) */
-
-      ret = nxsem_wait(&priv->sem_excl);
-
-      /* The only case that an error should occur here is if the wait was
-       * awakened by a signal.
-       */
-
-      DEBUGASSERT(ret == OK || ret == -EINTR);
-    }
-  while (ret == -EINTR);
+  nxsem_wait_uninterruptible(&priv->sem_excl);
 }
 
 /****************************************************************************
@@ -706,7 +691,7 @@ static inline int
 
   do
     {
-      (void)clock_gettime(CLOCK_REALTIME, &abstime);
+      clock_gettime(CLOCK_REALTIME, &abstime);
 
       /* Calculate a time in the future */
 
@@ -735,12 +720,11 @@ static inline int
 
       /* Wait until either the transfer is complete or the timeout expires */
 
-      ret = nxsem_timedwait(&priv->sem_isr, &abstime);
-      if (ret < 0 && ret != -EINTR)
+      ret = nxsem_timedwait_uninterruptible(&priv->sem_isr, &abstime);
+      if (ret < 0)
         {
           /* Break out of the loop on irrecoverable errors.  This would
            * include timeouts and mystery errors reported by nxsem_timedwait.
-           * NOTE that we try again if we are awakened by a signal (EINTR).
            */
 
           break;
@@ -847,7 +831,7 @@ static inline void
     {
       elapsed = clock_systimer() - start;
 
-      /* The bus is idle if the five least signifcant bits of I2CxCON
+      /* The bus is idle if the five least significant bits of I2CxCON
        * are cleared and the I2CxSTAT<TRSTAT> flag is cleared.
        */
 
@@ -1590,7 +1574,7 @@ static int pic32mz_i2c_deinit(FAR struct pic32mz_i2c_priv_s *priv)
 
   pic32mz_i2c_putreg(priv, PIC32MZ_I2C_CONCLR_OFFSET, I2C_CON_ON);
 
-  /* Disable and dettach ISRs */
+  /* Disable and detach ISRs */
 
 #ifndef CONFIG_I2C_POLLED
   up_disable_irq(priv->config->ev_irq);
@@ -1686,7 +1670,7 @@ static int pic32mz_i2c_transfer(FAR struct i2c_master_s *dev,
       status = pic32mz_i2c_getstatus(priv);
     }
 
-  /* Check for erros. */
+  /* Check for errors. */
 
   if ((status & I2C_STAT_BCL))
     {
@@ -1956,4 +1940,3 @@ int pic32mz_i2cbus_uninitialize(FAR struct i2c_master_s *dev)
 }
 
 #endif /* CONFIG_PIC32MZ_I2C */
-

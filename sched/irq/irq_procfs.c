@@ -95,7 +95,7 @@ struct irq_file_s
   size_t remaining;           /* Number of available characters in buffer */
   size_t ncopied;             /* Number of characters in buffer */
   off_t offset;               /* Current file offset */
-  char line[IRQ_LINELEN];    /* Pre-allocated buffer for formatted lines */
+  char line[IRQ_LINELEN];     /* Pre-allocated buffer for formatted lines */
 };
 
 /****************************************************************************
@@ -380,7 +380,7 @@ static ssize_t irq_read(FAR struct file *filep, FAR char *buffer,
    * each.
    */
 
-  (void)irq_foreach(irq_callback, (FAR void *)irqfile);
+  irq_foreach(irq_callback, (FAR void *)irqfile);
 
   /* Update the file position */
 

@@ -173,7 +173,7 @@ static int bch_close(FAR struct file *filep)
   /* Flush any dirty pages remaining in the cache */
 
   bchlib_semtake(bch);
-  (void)bchlib_flushsector(bch);
+  bchlib_flushsector(bch);
 
   /* Decrement the reference count (I don't use bchlib_decref() because I
    * want the entire close operation to be atomic wrt other driver
@@ -458,7 +458,7 @@ static int bch_unlink(FAR struct inode *inode)
 
   bch->unlinked = true;
 
-  /* If there are no open references to the drvier then teardown the BCH
+  /* If there are no open references to the driver then teardown the BCH
    * device now.
    */
 

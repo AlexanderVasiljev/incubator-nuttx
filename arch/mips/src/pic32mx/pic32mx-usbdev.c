@@ -1013,7 +1013,7 @@ static void pic32mx_rqrestart(int argc, uint32_t arg1, ...)
 #ifndef CONFIG_USBDEV_NOWRITEAHEAD
               privreq->inflight[1] = 0;
 #endif
-              (void)pic32mx_wrrequest(priv, privep);
+              pic32mx_wrrequest(priv, privep);
             }
         }
     }
@@ -1031,8 +1031,8 @@ static void pic32mx_delayedrestart(struct pic32mx_usbdev_s *priv, uint8_t epno)
 
   /* And start (or re-start) the watchdog timer */
 
-  (void)wd_start(priv->wdog, RESTART_DELAY, pic32mx_rqrestart, 1,
-                 (uint32_t)priv);
+  wd_start(priv->wdog, RESTART_DELAY, pic32mx_rqrestart, 1,
+           (uint32_t)priv);
 }
 
 /****************************************************************************
@@ -1283,7 +1283,7 @@ static int pic32mx_wrrequest(struct pic32mx_usbdev_s *priv, struct pic32mx_ep_s 
        * queued
        */
 
-      (void)pic32mx_wrstart(priv, privep);
+      pic32mx_wrstart(priv, privep);
     }
 #else
   UNUSED(ret);
@@ -1757,7 +1757,7 @@ static void pic32mx_eptransfer(struct pic32mx_usbdev_s *priv, uint8_t epno,
         {
           /* If that succeeds, then try to set up another OUT transfer. */
 
-          (void)pic32mx_rdrequest(priv, privep);
+          pic32mx_rdrequest(priv, privep);
         }
 #else
       UNUSED(ret);
@@ -1777,7 +1777,7 @@ static void pic32mx_eptransfer(struct pic32mx_usbdev_s *priv, uint8_t epno,
 
       /* Handle additional queued write requests */
 
-      (void)pic32mx_wrrequest(priv, privep);
+      pic32mx_wrrequest(priv, privep);
     }
 }
 
@@ -1788,7 +1788,7 @@ static void pic32mx_eptransfer(struct pic32mx_usbdev_s *priv, uint8_t epno,
  *   This function is called (1) after successful completion of an EP0 Setup
  *   command, or (2) after receipt of the OUT complete event (for simple
  *   transfers).  It simply sets up the single BDT to accept the next
- *   SETUP commend.
+ *   SETUP command.
  *
  ****************************************************************************/
 
@@ -2389,7 +2389,7 @@ resume_packet_processing:
    * could stall the endpoint and perhaps speed things up a bit???.
    */
 
-   /* Set up the BDT to accept the next setup commend. */
+   /* Set up the BDT to accept the next setup command. */
 
    pic32mx_ep0nextsetup(priv);
    priv->ctrlstate = CTRLSTATE_WAITSETUP;
@@ -2636,7 +2636,7 @@ static void pic32mx_ep0transfer(struct pic32mx_usbdev_s *priv, uint16_t ustat)
       /* Stall EP0 */
 
       usbtrace(TRACE_DEVERROR(PIC32MX_TRACEERR_EP0SETUPSTALLED), priv->ctrlstate);
-      (void)pic32mx_epstall(&priv->eplist[EP0].ep, false);
+      pic32mx_epstall(&priv->eplist[EP0].ep, false);
     }
 }
 
@@ -2708,7 +2708,7 @@ static int pic32mx_interrupt(int irq, void *context, FAR void *arg)
       priv->devstate = DEVSTATE_POWERED;
     }
 
-#ifdef  CONFIG_USBOTG
+#ifdef CONFIG_USBOTG
   /* Check if the ID Pin Changed State */
 
   if (otgir & USBOTG_INT_ID) != 0)
@@ -2768,7 +2768,7 @@ static int pic32mx_interrupt(int irq, void *context, FAR void *arg)
         /* Disable and deactivate HNP */
 #warning Missing Logic
 #endif
-      /* Acknowlege the reset interrupt */
+      /* Acknowledge the reset interrupt */
 
       pic32mx_putreg(USB_INT_URST, PIC32MX_USB_IR);
       goto interrupt_exit;
@@ -2780,7 +2780,7 @@ static int pic32mx_interrupt(int irq, void *context, FAR void *arg)
     {
       usbtrace(TRACE_INTDECODE(PIC32MX_TRACEINTID_IDLE), usbir);
 
-#ifdef  CONFIG_USBOTG
+#ifdef CONFIG_USBOTG
       /* If Suspended, Try to switch to Host */
 #warning "Missing logic"
 #else
@@ -3417,7 +3417,7 @@ static int pic32mx_epsubmit(struct usbdev_ep_s *ep, struct usbdev_req_s *req)
 
       if (!privep->stalled)
         {
-          (void)pic32mx_wrrequest(priv, privep);
+          pic32mx_wrrequest(priv, privep);
         }
     }
 
@@ -3436,7 +3436,7 @@ static int pic32mx_epsubmit(struct usbdev_ep_s *ep, struct usbdev_req_s *req)
 
       if (!privep->stalled)
         {
-          (void)pic32mx_rdrequest(priv, privep);
+          pic32mx_rdrequest(priv, privep);
         }
     }
 
@@ -3551,7 +3551,7 @@ static int pic32mx_epbdtstall(struct usbdev_ep_s *ep, bool resume, bool epin)
 
       /* Check for the EP0 OUT endpoint.  This is a special case because we
        * need to set it up to receive the next setup packet (Hmmm... what
-       * if there are queued outgoing reponses.  We need to revisit this.)
+       * if there are queued outgoing responses.  We need to revisit this.)
        */
 
       if (epno == 0 && !epin)
@@ -3776,7 +3776,7 @@ static void pic32mx_freeep(struct usbdev_s *dev, struct usbdev_ep_s *ep)
 
   /* Disable the endpoint */
 
-  (void)pic32mx_epdisable(ep);
+  pic32mx_epdisable(ep);
 
   /* Mark the endpoint as available */
 

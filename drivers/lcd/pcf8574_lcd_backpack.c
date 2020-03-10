@@ -256,7 +256,7 @@ static inline uint8_t rc2addr(FAR struct pcf8574_lcd_dev_s *priv,
     }
   else
     {
-      /* 4 line displays are intersting; third line really is a continuation
+      /* 4 line displays are interesting; third line really is a continuation
        * of first line, and fourth line is a continuation of second.
        */
 
@@ -629,7 +629,7 @@ static void lcd_create_char(FAR struct pcf8574_lcd_dev_s *priv,
   int nidx;
   uint8_t addr;
 
-  (void)lcd_read_busy_addr(priv, &addr);
+  lcd_read_busy_addr(priv, &addr);
   lcd_putcmd(priv, CMD_SET_CGADDR | (idxchar << 3));    /* set CGRAM address */
 
   for (nidx = 0; nidx < 8; ++nidx)
@@ -680,7 +680,7 @@ static void lcd_get_curpos(FAR struct pcf8574_lcd_dev_s *priv,
 {
   uint8_t addr;
 
-  (void)lcd_read_busy_addr(priv, &addr);
+  lcd_read_busy_addr(priv, &addr);
   addr2rc(priv, addr, row, col);
 }
 
@@ -1156,7 +1156,7 @@ static ssize_t pcf8574_lcd_read(FAR struct file *filep, FAR char *buffer,
 
   /* Get current cursor position so we can restore it */
 
-  (void)lcd_read_busy_addr(priv, &addr);
+  lcd_read_busy_addr(priv, &addr);
 
   /* Convert file position to row/col address and position DDADDR there */
 

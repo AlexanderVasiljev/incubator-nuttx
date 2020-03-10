@@ -240,11 +240,6 @@ static const struct file_operations at24cs_uuid_fops =
  *
  * Use ACK polling to detect the completion of the write operation.
  * Returns TRUE if write is complete (device replies to ACK).
- * Note: The device always replies an ACK for the control byte, the polling
- * shall be done using the ACK for the memory address byte. Read or write does
- * not matter.
- * Note: We should sleep a bit between retries, the write time is around 5 ms,
- * but the bus is slow, so, a few retries at most will happen.
  *
  ****************************************************************************/
 
@@ -253,7 +248,7 @@ static int ee24xx_waitwritecomplete(FAR struct ee24xx_dev_s *eedev,
 {
   struct i2c_msg_s msgs[1];
   int ret;
-  int retries = 100;
+  int retries = 500;
   uint8_t adr;
   uint32_t addr_hi = (memaddr >> (eedev->addrlen << 3));
 
@@ -323,16 +318,7 @@ static int ee24xx_writepage(FAR struct ee24xx_dev_s *eedev, uint32_t memaddr,
 
 static void ee24xx_semtake(FAR struct ee24xx_dev_s *eedev)
 {
-  /* Take the semaphore (perhaps waiting) */
-
-  while (sem_wait(&eedev->sem) != 0)
-    {
-      /* The only case that an error should occur here is if
-       * the wait was awakened by a signal.
-       */
-
-      DEBUGASSERT(errno == EINTR || errno == ECANCELED);
-    }
+  nxsem_wait_uninterruptible(&eedev->sem);
 }
 
 /****************************************************************************
@@ -344,7 +330,7 @@ static void ee24xx_semtake(FAR struct ee24xx_dev_s *eedev)
 
 static inline void ee24xx_semgive(FAR struct ee24xx_dev_s *eedev)
 {
-  sem_post(&eedev->sem);
+  nxsem_post(&eedev->sem);
 }
 
 /****************************************************************************
@@ -770,11 +756,11 @@ static int ee24xx_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
 
   DEBUGASSERT(inode && inode->i_private);
   eedev = (FAR struct ee24xx_dev_s *)inode->i_private;
+  UNUSED(eedev);
 
   switch (cmd)
     {
       default:
-        (void)eedev;
         ret = -EINVAL;
     }
 
@@ -818,7 +804,7 @@ int ee24xx_initialize(FAR struct i2c_master_s *bus, uint8_t devaddr,
       return -ENOMEM;
     }
 
-  sem_init(&eedev->sem, 0, 1);
+  nxsem_init(&eedev->sem, 0, 1);
 
   eedev->freq     = CONFIG_EE24XX_FREQUENCY;
   eedev->i2c      = bus;

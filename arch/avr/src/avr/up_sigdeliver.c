@@ -105,7 +105,7 @@ void up_sigdeliver(void)
    */
 
   sinfo("Resuming\n");
-  (void)up_irq_save();
+  up_irq_save();
   rtcb->pterrno       = saved_errno;
 
   /* Modify the saved return state with the actual saved values in the
@@ -128,7 +128,7 @@ void up_sigdeliver(void)
 
   /* Then restore the correct state for this thread of execution. This is an
    * unusual case that must be handled by up_fullcontextresore. This case is
-   * unusal in two ways:
+   * unusual in two ways:
    *
    *   1. It is not a context switch between threads.  Rather, up_fullcontextrestore
    *      must behave more it more like a longjmp within the same task, using

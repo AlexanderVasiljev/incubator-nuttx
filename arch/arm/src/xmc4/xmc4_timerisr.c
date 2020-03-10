@@ -120,7 +120,7 @@ static int xmc4_timerisr(int irq, uint32_t *regs, FAR void *arg)
  ****************************************************************************/
 
 /****************************************************************************
- * Function:  arm_timer_initialize
+ * Function:  up_timer_initialize
  *
  * Description:
  *   This function is called during start-up to initialize
@@ -128,7 +128,7 @@ static int xmc4_timerisr(int irq, uint32_t *regs, FAR void *arg)
  *
  ****************************************************************************/
 
-void arm_timer_initialize(void)
+void up_timer_initialize(void)
 {
   uint32_t regval;
 
@@ -161,7 +161,7 @@ void arm_timer_initialize(void)
 
   /* Attach the timer interrupt vector */
 
-  (void)irq_attach(XMC4_IRQ_SYSTICK, (xcpt_t)xmc4_timerisr, NULL);
+  irq_attach(XMC4_IRQ_SYSTICK, (xcpt_t)xmc4_timerisr, NULL);
 
   /* Enable SysTick interrupts */
 

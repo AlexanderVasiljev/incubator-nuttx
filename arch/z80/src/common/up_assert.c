@@ -82,25 +82,25 @@ static void _up_assert(int errorcode) /* noreturn_function */
 {
   /* Flush any buffered SYSLOG data */
 
-  (void)syslog_flush();
+  syslog_flush();
 
   /* Are we in an interrupt handler or the idle task? */
 
   if (up_interrupt_context() || running_task()->flink == NULL)
     {
-       (void)up_irq_save();
-        for (;;)
-          {
+      up_irq_save();
+      for (; ; )
+        {
 #if CONFIG_BOARD_RESET_ON_ASSERT >= 1
-            board_reset(CONFIG_BOARD_ASSERT_RESET_VALUE);
+          board_reset(CONFIG_BOARD_ASSERT_RESET_VALUE);
 #endif
 #ifdef CONFIG_ARCH_LEDS
-            board_autoled_on(LED_PANIC);
-            up_mdelay(250);
-            board_autoled_off(LED_PANIC);
-            up_mdelay(250);
+          board_autoled_on(LED_PANIC);
+          up_mdelay(250);
+          board_autoled_off(LED_PANIC);
+          up_mdelay(250);
 #endif
-          }
+        }
     }
   else
     {
@@ -158,7 +158,7 @@ void up_assert(void)
 
   /* Flush any buffered SYSLOG data (from prior to the assertion) */
 
-  (void)syslog_flush();
+  syslog_flush();
 
 #ifdef CONFIG_HAVE_FILENAME
 #if CONFIG_TASK_NAME_SIZE > 0
@@ -182,14 +182,16 @@ void up_assert(void)
 #ifdef CONFIG_ARCH_USBDUMP
   /* Dump USB trace data */
 
-  (void)usbtrace_enumerate(assert_tracecallback, NULL);
+  usbtrace_enumerate(assert_tracecallback, NULL);
 #endif
 
   /* Flush any buffered SYSLOG data (from the above) */
 
-  (void)syslog_flush();
+  syslog_flush();
 
 #ifdef CONFIG_BOARD_CRASHDUMP
+  /* Execute board-specific crash dump logic */
+
   board_crashdump(Z80_getsp(), running_task(), filename, lineno);
 #endif
 

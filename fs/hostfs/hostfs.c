@@ -46,7 +46,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <semaphore.h>
 #include <assert.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -175,21 +174,7 @@ const struct mountpt_operations hostfs_operations =
 
 void hostfs_semtake(FAR struct hostfs_mountpt_s *fs)
 {
-  int ret;
-
-  do
-    {
-      /* Take the semaphore (perhaps waiting) */
-
-      ret = nxsem_wait(fs->fs_sem);
-
-      /* The only case that an error should occur here is if the wait was
-       * awakened by a signal.
-       */
-
-      DEBUGASSERT(ret == OK || ret == -EINTR);
-    }
-  while (ret == -EINTR);
+  nxsem_wait_uninterruptible(fs->fs_sem);
 }
 
 /****************************************************************************
@@ -234,7 +219,7 @@ static void hostfs_mkpath(FAR struct hostfs_mountpt_s  *fs,
 
   while (relpath[x] != '\0')
     {
-      /* Test for ".." occurance */
+      /* Test for ".." occurrence */
 
       if (strncmp(&relpath[x], "..", 2) == 0)
         {
@@ -943,7 +928,7 @@ static int hostfs_bind(FAR struct inode *blkdriver, FAR const void *data,
       return -ENOMEM;
     }
 
-  /* The options we suppor are:
+  /* The options we support are:
    *  "fs=whatever", remote dir
    */
 

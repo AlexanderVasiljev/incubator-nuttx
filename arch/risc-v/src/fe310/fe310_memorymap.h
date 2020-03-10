@@ -40,6 +40,7 @@
 #include "hardware/fe310_memorymap.h"
 #include "hardware/fe310_uart.h"
 #include "hardware/fe310_clint.h"
+#include "hardware/fe310_gpio.h"
 #include "hardware/fe310_plic.h"
 #include "hardware/fe310_prci.h"
 
@@ -58,5 +59,4 @@
 #define FE310_IDLESTACK_SIZE (CONFIG_IDLETHREAD_STACKSIZE & ~3)
 #define FE310_IDLESTACK_TOP  (FE310_IDLESTACK_BASE + FE310_IDLESTACK_SIZE)
 
-#endif  /* _ARCH_RISCV_SRC_FE310_FE310_MEMORYMAP_H */
-
+#endif /* _ARCH_RISCV_SRC_FE310_FE310_MEMORYMAP_H */

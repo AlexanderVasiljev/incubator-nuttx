@@ -53,8 +53,10 @@
 #include "up_arch.h"
 #include "up_internal.h"
 
-#include "nrf52_gpio.h"
 #include "nrf52_irq.h"
+#ifdef CONFIG_NRF52_GPIOTE
+#  include "nrf52_gpiote.h"
+#endif
 
 /****************************************************************************
  * Pre-processor Definitions
@@ -114,9 +116,12 @@ static void nrf52_dumpnvic(const char *msg, int irq)
   irqinfo("  INTCTRL:    %08x VECTAB: %08x\n",
           getreg32(NVIC_INTCTRL), getreg32(NVIC_VECTAB));
 #if 0
-  irqinfo("  SYSH ENABLE MEMFAULT: %08x BUSFAULT: %08x USGFAULT: %08x SYSTICK: %08x\n",
-          getreg32(NVIC_SYSHCON_MEMFAULTENA), getreg32(NVIC_SYSHCON_BUSFAULTENA),
-          getreg32(NVIC_SYSHCON_USGFAULTENA), getreg32(NVIC_SYSTICK_CTRL_ENABLE));
+  irqinfo("  SYSH ENABLE MEMFAULT: %08x BUSFAULT: %08x \n",
+          getreg32(NVIC_SYSHCON_MEMFAULTENA),
+          getreg32(NVIC_SYSHCON_BUSFAULTENA));
+  irqinfo("  USGFAULT: %08x SYSTICK: %08x\n",
+          getreg32(NVIC_SYSHCON_USGFAULTENA),
+          getreg32(NVIC_SYSTICK_CTRL_ENABLE));
 #endif
   irqinfo("  IRQ ENABLE: %08x %08x\n",
           getreg32(NVIC_IRQ0_31_ENABLE), getreg32(NVIC_IRQ32_63_ENABLE));
@@ -156,7 +161,7 @@ static void nrf52_dumpnvic(const char *msg, int irq)
 #ifdef CONFIG_DEBUG_FEATURES
 static int nrf52_nmi(int irq, FAR void *context, FAR void *arg)
 {
-  (void)up_irq_save();
+  up_irq_save();
   _err("PANIC!!! NMI received\n");
   PANIC();
   return 0;
@@ -164,7 +169,7 @@ static int nrf52_nmi(int irq, FAR void *context, FAR void *arg)
 
 static int nrf52_busfault(int irq, FAR void *context, FAR void *arg)
 {
-  (void)up_irq_save();
+  up_irq_save();
   _err("PANIC!!! Bus fault received\n");
   PANIC();
   return 0;
@@ -172,7 +177,7 @@ static int nrf52_busfault(int irq, FAR void *context, FAR void *arg)
 
 static int nrf52_usagefault(int irq, FAR void *context, FAR void *arg)
 {
-  (void)up_irq_save();
+  up_irq_save();
   _err("PANIC!!! Usage fault received\n");
   PANIC();
   return 0;
@@ -180,7 +185,7 @@ static int nrf52_usagefault(int irq, FAR void *context, FAR void *arg)
 
 static int nrf52_pendsv(int irq, FAR void *context, FAR void *arg)
 {
-  (void)up_irq_save();
+  up_irq_save();
   _err("PANIC!!! PendSV received\n");
   PANIC();
   return 0;
@@ -188,7 +193,7 @@ static int nrf52_pendsv(int irq, FAR void *context, FAR void *arg)
 
 static int nrf52_dbgmonitor(int irq, FAR void *context, FAR void *arg)
 {
-  (void)up_irq_save();
+  up_irq_save();
   _err("PANIC!!! Debug Monitor received\n");
   PANIC();
   return 0;
@@ -196,7 +201,7 @@ static int nrf52_dbgmonitor(int irq, FAR void *context, FAR void *arg)
 
 static int nrf52_reserved(int irq, FAR void *context, FAR void *arg)
 {
-  (void)up_irq_save();
+  up_irq_save();
   _err("PANIC!!! Reserved interrupt\n");
   PANIC();
   return 0;
@@ -370,7 +375,9 @@ void up_irqinitialize(void)
   /* Set the priority of the SVCall interrupt */
 
 #ifdef CONFIG_ARCH_IRQPRIO
-  /* up_prioritize_irq(NRF52_IRQ_PENDSV, NVIC_SYSH_PRIORITY_MIN); */
+#  if 0
+  up_prioritize_irq(NRF52_IRQ_PENDSV, NVIC_SYSH_PRIORITY_MIN);
+#  endif
 #endif
 
 #ifdef CONFIG_ARMV7M_USEBASEPRI
@@ -413,10 +420,10 @@ void up_irqinitialize(void)
   putreg32(regval, NVIC_DEMCR);
 #endif
 
-#ifdef CONFIG_NRF52_GPIOIRQ
-  /* Initialize GPIO interrupts */
+#ifdef CONFIG_NRF52_GPIOTE
+  /* Initialize GPIOTE */
 
-  nrf52_gpio_irqinitialize();
+  nrf52_gpiote_init();
 #endif
 
 #ifndef CONFIG_SUPPRESS_INTERRUPTS

@@ -41,6 +41,7 @@
 
 #include <debug.h>
 
+#include <nuttx/board.h>
 #include <arch/board/board.h>
 
 /****************************************************************************
@@ -60,7 +61,7 @@
  *
  * Description:
  *   All FE310 architectures must provide the following entry point.
- *   This entry point is called early in the intitialization -- after all
+ *   This entry point is called early in the initialization -- after all
  *   memory has been configured and mapped but before any devices have been
  *   initialized.
  *
@@ -68,4 +69,9 @@
 
 void fe310_boardinitialize(void)
 {
+#ifdef CONFIG_ARCH_LEDS
+  /* Configure on-board LEDs if LED support has been selected. */
+
+  board_autoled_initialize();
+#endif
 }

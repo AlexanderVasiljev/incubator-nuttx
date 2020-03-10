@@ -44,7 +44,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <semaphore.h>
 #include <assert.h>
 #include <errno.h>
 #include <debug.h>
@@ -55,6 +54,7 @@
 #include <nuttx/wqueue.h>
 #include <nuttx/clock.h>
 #include <nuttx/fs/ioctl.h>
+#include <nuttx/semaphore.h>
 #include <nuttx/serial/serial.h>
 
 #include <nuttx/usb/usb.h>
@@ -394,7 +394,7 @@ static bool usbhost_txempty(FAR struct uart_dev_s *uartdev);
  * device.
  */
 
-static const struct usbhost_id_s g_id[2] =
+static const struct usbhost_id_s g_id[4] =
 {
   {
     USB_CLASS_CDC,          /* base     */
@@ -409,6 +409,20 @@ static const struct usbhost_id_s g_id[2] =
     CDC_PROTO_ATM,          /* proto    */
     0,                      /* vid      */
     0                       /* pid      */
+  },
+  {
+    USB_CLASS_VENDOR_SPEC,  /* base     */
+    CDC_SUBCLASS_NONE,      /* subclass */
+    CDC_PROTO_NONE,         /* proto    */
+    0x2c7c,                 /* vid      */
+    0x0125                  /* pid      */
+  },
+  {
+    USB_CLASS_VENDOR_SPEC,  /* base     */
+    CDC_SUBCLASS_ACM,       /* subclass */
+    CDC_PROTO_NONE,         /* proto    */
+    0x2c7c,                 /* vid      */
+    0x0125                  /* pid      */
   }
 };
 
@@ -418,7 +432,7 @@ static struct usbhost_registry_s g_cdcacm =
 {
   NULL,                   /* flink    */
   usbhost_create,         /* create   */
-  2,                      /* nids     */
+  4,                      /* nids     */
   &g_id[0]                /* id[]     */
 };
 
@@ -474,21 +488,7 @@ static uint32_t g_devinuse;
 
 static void usbhost_takesem(FAR sem_t *sem)
 {
-  int ret;
-
-  do
-    {
-      /* Take the semaphore (perhaps waiting) */
-
-      ret = nxsem_wait(sem);
-
-      /* The only case that an error should occur here is if the wait was
-       * awakened by a signal.
-       */
-
-      DEBUGASSERT(ret == OK || ret == -EINTR);
-    }
-  while (ret == -EINTR);
+  nxsem_wait_uninterruptible(sem);
 }
 
 /****************************************************************************
@@ -655,7 +655,7 @@ static void usbhost_devno_free(FAR struct usbhost_cdcacm_s *priv)
 static inline void usbhost_mkdevname(FAR struct usbhost_cdcacm_s *priv,
                                      FAR char *devname)
 {
-  (void)snprintf(devname, DEV_NAMELEN, DEV_FORMAT, priv->minor);
+  snprintf(devname, DEV_NAMELEN, DEV_FORMAT, priv->minor);
 }
 
 /****************************************************************************
@@ -878,9 +878,9 @@ static void usbhost_notification_callback(FAR void *arg, ssize_t nbytes)
 
       if (work_available(&priv->ntwork))
         {
-          (void)work_queue(HPWORK, &priv->ntwork,
-                           (worker_t)usbhost_notification_work,
-                           priv, delay);
+          work_queue(HPWORK, &priv->ntwork,
+                     (worker_t)usbhost_notification_work,
+                     priv, delay);
         }
     }
 }
@@ -1394,7 +1394,8 @@ static int usbhost_cfgdesc(FAR struct usbhost_cdcacm_s *priv,
 
             /* Check for the CDC/ACM data interface */
 
-            if (ifdesc->classid == USB_CLASS_CDC_DATA &&
+            if ((ifdesc->classid == USB_CLASS_CDC_DATA ||
+                ifdesc->classid == USB_CLASS_VENDOR_SPEC) &&
                 (found & USBHOST_DATAIF_FOUND) == 0)
               {
                 /* Save the data interface number and mark that the data
@@ -1508,7 +1509,8 @@ static int usbhost_cfgdesc(FAR struct usbhost_cdcacm_s *priv,
             /* Check for an interrupt IN endpoint. */
 
             else if (currif == USBHOST_CTRLIF_FOUND &&
-                     (epdesc->attr & USB_EP_ATTR_XFERTYPE_MASK) == USB_EP_ATTR_XFER_INT)
+                     (epdesc->attr & USB_EP_ATTR_XFERTYPE_MASK) ==
+                     USB_EP_ATTR_XFER_INT)
               {
                 /* Yes.. it is a interrupt endpoint.  IN or OUT? */
 
@@ -1576,7 +1578,7 @@ static int usbhost_cfgdesc(FAR struct usbhost_cdcacm_s *priv,
     }
 
   /* Sanity checking... did we find all of things that we needed for the
-   * basic CDC/ACM data itnerface? NOTE: that the Control interface with
+   * basic CDC/ACM data interface? NOTE: that the Control interface with
    * the Interrupt IN endpoint is optional.
    */
 
@@ -1602,7 +1604,7 @@ static int usbhost_cfgdesc(FAR struct usbhost_cdcacm_s *priv,
   if (ret < 0)
     {
       uerr("ERROR: Failed to allocate Bulk IN endpoint\n");
-      (void)DRVR_EPFREE(hport->drvr, priv->bulkout);
+      DRVR_EPFREE(hport->drvr, priv->bulkout);
       return ret;
     }
 
@@ -1704,7 +1706,7 @@ static void usbhost_putle32(FAR uint8_t *dest, uint32_t val)
   /* Little endian means LS halfword first in byte stream */
 
   usbhost_putle16(dest, (uint16_t)(val & 0xffff));
-  usbhost_putle16(dest+2, (uint16_t)(val >> 16));
+  usbhost_putle16(dest + 2, (uint16_t)(val >> 16));
 }
 #endif
 
@@ -1824,27 +1826,27 @@ static void usbhost_free_buffers(FAR struct usbhost_cdcacm_s *priv)
 
   if (priv->ctrlreq)
     {
-      (void)DRVR_FREE(hport->drvr, priv->ctrlreq);
+      DRVR_FREE(hport->drvr, priv->ctrlreq);
     }
 
   if (priv->linecode)
     {
-      (void)DRVR_IOFREE(hport->drvr, priv->linecode);
+      DRVR_IOFREE(hport->drvr, priv->linecode);
     }
 
   if (priv->notification)
     {
-      (void)DRVR_IOFREE(hport->drvr, priv->notification);
+      DRVR_IOFREE(hport->drvr, priv->notification);
     }
 
   if (priv->inbuf)
     {
-      (void)DRVR_IOFREE(hport->drvr, priv->inbuf);
+      DRVR_IOFREE(hport->drvr, priv->inbuf);
     }
 
   if (priv->outbuf)
     {
-      (void)DRVR_IOFREE(hport->drvr, priv->outbuf);
+      DRVR_IOFREE(hport->drvr, priv->outbuf);
     }
 
   priv->pktsize      = 0;
@@ -1904,7 +1906,7 @@ usbhost_create(FAR struct usbhost_hubport_s *hport,
 
       if (usbhost_devno_alloc(priv) == OK)
         {
-         /* Initialize class method function pointers */
+          /* Initialize class method function pointers */
 
           priv->usbclass.hport        = hport;
           priv->usbclass.connect      = usbhost_connect;
@@ -2196,7 +2198,7 @@ static int usbhost_disconnected(FAR struct usbhost_class_s *usbclass)
                 priv->ntwork.worker, usbhost_destroy);
 
           DEBUGASSERT(work_available(&priv->ntwork));
-          (void)work_queue(HPWORK, &priv->ntwork, usbhost_destroy, priv, 0);
+          work_queue(HPWORK, &priv->ntwork, usbhost_destroy, priv, 0);
         }
       else
         {
@@ -2213,6 +2215,7 @@ static int usbhost_disconnected(FAR struct usbhost_class_s *usbclass)
 /****************************************************************************
  * Serial Lower-Half Interfaces
  ****************************************************************************/
+
 /****************************************************************************
  * Name: usbhost_setup
  *
@@ -2584,7 +2587,7 @@ static void usbhost_rxint(FAR struct uart_dev_s *uartdev, bool enable)
     {
       /* Cancel any pending, delayed RX data reception work */
 
-      (void)work_cancel(LPWORK, &priv->rxwork);
+      work_cancel(LPWORK, &priv->rxwork);
 
       /* Restart immediate RX data reception work (unless RX flow control
        * is in effect.
@@ -2604,7 +2607,7 @@ static void usbhost_rxint(FAR struct uart_dev_s *uartdev, bool enable)
     {
       /* Cancel any pending RX data reception work */
 
-      (void)work_cancel(LPWORK, &priv->rxwork);
+      work_cancel(LPWORK, &priv->rxwork);
     }
 
   /* Save the new RX enable state */
@@ -2622,7 +2625,6 @@ static void usbhost_rxint(FAR struct uart_dev_s *uartdev, bool enable)
 
 static bool usbhost_rxavailable(FAR struct uart_dev_s *uartdev)
 {
-
   FAR struct usbhost_cdcacm_s *priv;
 
   DEBUGASSERT(uartdev && uartdev->priv);
@@ -2683,11 +2685,11 @@ static bool usbhost_rxflowcontrol(FAR struct uart_dev_s *uartdev,
        * RTS.
        */
 
-       priv->rts = false;
+      priv->rts = false;
 
-       /* Cancel any pending RX data reception work */
+      /* Cancel any pending RX data reception work */
 
-      (void)work_cancel(LPWORK, &priv->rxwork)
+      work_cancel(LPWORK, &priv->rxwork);
       return true;
     }
   else if (!priv->rts && !upper)
@@ -2738,7 +2740,7 @@ static void usbhost_txint(FAR struct uart_dev_s *uartdev, bool enable)
     {
       /* Cancel any pending, delayed TX data transmission work */
 
-      (void)work_cancel(LPWORK, &priv->txwork);
+      work_cancel(LPWORK, &priv->txwork);
 
       /* Restart immediate TX data transmission work */
 
@@ -2751,7 +2753,7 @@ static void usbhost_txint(FAR struct uart_dev_s *uartdev, bool enable)
     {
       /* Cancel any pending TX data transmission work */
 
-      (void)work_cancel(LPWORK, &priv->txwork);
+      work_cancel(LPWORK, &priv->txwork);
     }
 
   /* Save the new RX enable state */
@@ -2831,4 +2833,4 @@ int usbhost_cdcacm_initialize(void)
   return usbhost_registerclass(&g_cdcacm);
 }
 
-#endif  /* CONFIG_USBHOST_CDCACM */
+#endif /* CONFIG_USBHOST_CDCACM */

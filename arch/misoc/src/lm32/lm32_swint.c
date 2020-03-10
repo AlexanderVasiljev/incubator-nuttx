@@ -105,14 +105,14 @@ static void dispatch_syscall(void)
 #  error "Missing logic"
 
 /* Refer to arch/arm/src/armv7-m/up_svcall.h for how this is done for ARM */
-/*  __asm__ __volatile__ */
+/* __asm__ __volatile__ */
 /* ( */
 /*   Save registers */
 /*   Get the base of the stub lookup table */
 /*   Get the offset of the stub for this syscall */
 /*   Load the entry of the stub for this syscall */
 /*   Call the stub */
-/*   Restore regsisters */
+/*   Restore registers */
 /*   Return from the syscall */
 /* ); */
 }
@@ -320,7 +320,7 @@ int lm32_swint(int irq, FAR void *context, FAR void *arg)
        * thread at the head of the ready-to-run list.
        */
 
-      (void)group_addrenv(NULL);
+      group_addrenv(NULL);
 #endif
     }
 #endif

@@ -42,7 +42,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <fcntl.h>
-#include <semaphore.h>
 #include <sched.h>
 #include <assert.h>
 #include <errno.h>
@@ -53,6 +52,7 @@
 #include <nuttx/wqueue.h>
 #include <nuttx/fs/fs.h>
 #include <nuttx/input/touchscreen.h>
+#include <nuttx/semaphore.h>
 
 #include <arch/board/board.h>
 #include "up_arch.h"
@@ -282,7 +282,7 @@ static struct tc_dev_s g_touchscreen;
  *
  * Description:
  *   Perform A/D sampling.
- *   Time must be allowed betwen the start of sampling
+ *   Time must be allowed between the start of sampling
  *   and conversion (approx. 100Ms).
  *
  ****************************************************************************/
@@ -333,12 +333,12 @@ static void tc_adc_sample(int pin)
  *
  * Description:
  *   Begin A/D conversion.
- *   Time must be allowed betwen the start of sampling
+ *   Time must be allowed between the start of sampling
  *   and conversion (approx. 100Ms).
  *
  * Assumptions:
  * 1) All output pins configured as outputs:
- * 2) Approprite pins are driven high and low
+ * 2) Appropriate pins are driven high and low
  *
  ****************************************************************************/
 
@@ -592,7 +592,7 @@ static int tc_waitsample(FAR struct tc_dev_s *priv,
   nxsem_post(&priv->devsem);
 
   /* Try to get the a sample... if we cannot, then wait on the semaphore
-   * that is posted when new sample data is availble.
+   * that is posted when new sample data is available.
    */
 
   while (tc_sample(priv, sample) < 0)
@@ -605,11 +605,6 @@ static int tc_waitsample(FAR struct tc_dev_s *priv,
 
       if (ret < 0)
         {
-          /* If we are awakened by a signal, then we need to return
-           * the failure now.
-           */
-
-          DEBUGASSERT(ret == -EINTR || ret == -ECANCELED);
           goto errout;
         }
     }
@@ -1010,9 +1005,6 @@ static int tc_open(FAR struct file *filep)
   ret = nxsem_wait(&priv->devsem);
   if (ret < 0)
     {
-      /* This should only happen if the wait was canceled by an signal */
-
-      DEBUGASSERT(ret == -EINTR || ret == -ECANCELED);
       return ret;
     }
 
@@ -1065,9 +1057,6 @@ static int tc_close(FAR struct file *filep)
   ret = nxsem_wait(&priv->devsem);
   if (ret < 0)
     {
-      /* This should only happen if the wait was canceled by an signal */
-
-      DEBUGASSERT(ret == -EINTR || ret == -ECANCELED);
       return ret;
     }
 
@@ -1122,9 +1111,6 @@ static ssize_t tc_read(FAR struct file *filep, FAR char *buffer, size_t len)
   ret = nxsem_wait(&priv->devsem);
   if (ret < 0)
     {
-      /* This should only happen if the wait was canceled by an signal */
-
-      DEBUGASSERT(ret == -EINTR || ret == -ECANCELED);
       return ret;
     }
 
@@ -1236,9 +1222,6 @@ static int tc_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
   ret = nxsem_wait(&priv->devsem);
   if (ret < 0)
     {
-      /* This should only happen if the wait was canceled by an signal */
-
-      DEBUGASSERT(ret == -EINTR || ret == -ECANCELED);
       return ret;
     }
 
@@ -1282,9 +1265,6 @@ static int tc_poll(FAR struct file *filep, FAR struct pollfd *fds,
   ret = nxsem_wait(&priv->devsem);
   if (ret < 0)
     {
-      /* This should only happen if the wait was canceled by an signal */
-
-      DEBUGASSERT(ret == -EINTR || ret == -ECANCELED);
       return ret;
     }
 
@@ -1412,7 +1392,7 @@ int pic32mx_tsc_setup(int minor)
 
   /* Register the device as an input device */
 
-  (void)snprintf(devname, DEV_NAMELEN, DEV_FORMAT, minor);
+  snprintf(devname, DEV_NAMELEN, DEV_FORMAT, minor);
   iinfo("Registering %s\n", devname);
 
   ret = register_driver(devname, &tc_fops, 0666, priv);

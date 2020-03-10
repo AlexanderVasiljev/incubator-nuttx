@@ -129,7 +129,7 @@ int spirit_timer_enable_autoreload(FAR struct spirit_library_s *spirit,
   ret = spirit_reg_read(spirit, PROTOCOL1_BASE, &regval, 1);
   if (ret >= 0)
     {
-      /* Mask te read value to enable or disable the reload on sync mode */
+      /* Mask the read value to enable or disable the reload on sync mode */
 
       if (newstate == S_ENABLE)
         {
@@ -169,7 +169,7 @@ enum spirit_functional_state_e
 
   /* Reads the register value */
 
-  (void)spirit_reg_read(spirit, PROTOCOL1_BASE, &regval, 1);
+  spirit_reg_read(spirit, PROTOCOL1_BASE, &regval, 1);
 
   return (enum spirit_functional_state_e)(regval & 0x80);
 }
@@ -730,7 +730,7 @@ uint16_t spirit_timer_get_rcofrequency(FAR struct spirit_library_s *spirit)
 
   if (xtal_frequency == 25000000)
     {
-      (void)spirit_reg_read(spirit, 0x01, &xtal_flag, 1);
+      spirit_reg_read(spirit, 0x01, &xtal_flag, 1);
       xtal_flag = (xtal_flag & 0x40);
 
       if (xtal_flag == 0)

@@ -43,13 +43,13 @@
 #include <sys/types.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include <semaphore.h>
 #include <assert.h>
 #include <errno.h>
 #include <debug.h>
 
 #include <nuttx/irq.h>
 #include <nuttx/arch.h>
+#include <nuttx/semaphore.h>
 #include <nuttx/spi/spi.h>
 
 #include <arch/board/board.h>
@@ -285,7 +285,7 @@
 #elif CONFIG_STR714X_BSPI0_RXFIFO_DEPTH == 10
 #  define STR71X_BSPI0_CSR1RXFIFODEPTH STR71X_BSPICSR1_RFE110
 #else
-#  error "Invaid RX FIFO depth setting"
+#  error "Invalid RX FIFO depth setting"
 #endif
 
 #define STR71X_BSPI0_CSR1DISABLE STR71X_BSPI0_CSR1RXFIFODEPTH
@@ -312,7 +312,7 @@
 #elif CONFIG_STR714X_BSPI0_TXFIFO_DEPTH == 10
 #  define STR71X_BSPI0_CSR1TXFIFODEPTH STR71X_BSPICSR2_TFE110
 #else
-#  error "Invaid TX FIFO depth setting"
+#  error "Invalid TX FIFO depth setting"
 #endif
 
 #define STR71X_BSPI0_CSR2VALUE STR71X_BSPI0_CSR1TXFIFODEPTH
@@ -338,7 +338,7 @@
 #elif CONFIG_STR714X_BSPI1_RXFIFO_DEPTH == 10
 #  define STR71X_BSPI1_CSR1RXFIFODEPTH STR71X_BSPICSR1_RFE110
 #else
-#  error "Invaid RX FIFO depth setting"
+#  error "Invalid RX FIFO depth setting"
 #endif
 
 #define STR71X_BSPI1_CSR1DISABLE STR71X_BSPI1_CSR1RXFIFODEPTH
@@ -365,7 +365,7 @@
 #elif CONFIG_STR714X_BSPI1_TXFIFO_DEPTH == 10
 #  define STR71X_BSPI1_CSR1TXFIFODEPTH STR71X_BSPICSR2_TFE110
 #else
-#  error "Invaid TX FIFO depth setting"
+#  error "Invalid TX FIFO depth setting"
 #endif
 
 #define STR71X_BSPI1_CSR2VALUE STR71X_BSPI1_CSR1TXFIFODEPTH
@@ -550,7 +550,7 @@ static inline void spi_drain(FAR struct str71x_spidev_s *priv)
 
   do
     {
-      (void)spi_getreg(priv, STR71X_BSPI_RXR_OFFSET);
+      spi_getreg(priv, STR71X_BSPI_RXR_OFFSET);
     }
   while ((spi_getreg(priv, STR71X_BSPI_CSR2_OFFSET) & STR71X_BSPICSR2_RFNE) != 0);
 }
@@ -559,12 +559,12 @@ static inline void spi_drain(FAR struct str71x_spidev_s *priv)
  * Name: spi_lock
  *
  * Description:
- *   On SPI busses where there are multiple devices, it will be necessary to
- *   lock SPI to have exclusive access to the busses for a sequence of
+ *   On SPI buses where there are multiple devices, it will be necessary to
+ *   lock SPI to have exclusive access to the buses for a sequence of
  *   transfers.  The bus should be locked before the chip is selected. After
  *   locking the SPI bus, the caller should then also call the setfrequency,
  *   setbits, and setmode methods to make sure that the SPI is properly
- *   configured for the device.  If the SPI buss is being shared, then it
+ *   configured for the device.  If the SPI bus is being shared, then it
  *   may have been left in an incompatible state.
  *
  * Input Parameters:
@@ -583,24 +583,11 @@ static int spi_lock(FAR struct spi_dev_s *dev, bool lock)
 
   if (lock)
     {
-      /* Take the semaphore (perhaps waiting) */
-
-      do
-        {
-          ret = nxsem_wait(&priv->exclsem);
-
-          /* The only case that an error should occur here is if the wait
-           * was awakened by a signal.
-           */
-
-          DEBUGASSERT(ret == OK || ret == -EINTR);
-        }
-      while (ret == -EINTR);
+      ret = nxsem_wait_uninterruptible(&priv->exclsem);
     }
   else
     {
-      (void)nxsem_post(&priv->exclsem);
-      ret = OK;
+      ret = nxsem_post(&priv->exclsem);
     }
 
   return ret;
@@ -685,7 +672,7 @@ static uint32_t spi_setfrequency(FAR struct spi_dev_s *dev,
 
   divisor = (STR71X_PCLK1 + (frequency >> 1)) / frequency;
 
-  /* The divisor must be an even number and contrained to the range of
+  /* The divisor must be an even number and constrained to the range of
    * 5 (master mode, or 7 for slave mode) and 255.  These bits must
    * be configured BEFORE  the BSPE or MSTR bits.. i.e., before the SPI
    * is put into master mode.
@@ -853,7 +840,7 @@ static void spi_sndblock(FAR struct spi_dev_s *dev, FAR const void *buffer, size
 
   DEBUGASSERT(priv && priv->spibase);
 
-  /* Loop while thre are bytes remaining to be sent */
+  /* Loop while there are bytes remaining to be sent */
 
   while (buflen > 0)
     {
@@ -880,7 +867,7 @@ static void spi_sndblock(FAR struct spi_dev_s *dev, FAR const void *buffer, size
         {
           /* Yes.. Read and discard */
 
-          (void)spi_getreg(priv, STR71X_BSPI_RXR_OFFSET);
+          spi_getreg(priv, STR71X_BSPI_RXR_OFFSET);
         }
 
       /* There is a race condition where TFNE may go false just before

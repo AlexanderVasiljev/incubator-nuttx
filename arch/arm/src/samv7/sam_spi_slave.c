@@ -42,7 +42,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
-#include <semaphore.h>
 #include <errno.h>
 #include <assert.h>
 #include <debug.h>
@@ -50,6 +49,7 @@
 #include <nuttx/arch.h>
 #include <nuttx/kmalloc.h>
 #include <nuttx/irq.h>
+#include <nuttx/semaphore.h>
 #include <nuttx/spi/slave.h>
 
 #include "up_arch.h"
@@ -360,19 +360,7 @@ static void spi_dumpregs(struct sam_spidev_s *priv, const char *msg)
 
 static void spi_semtake(struct sam_spidev_s *priv)
 {
-  int ret;
-
-  /* Wait until we successfully get the semaphore.  EINTR is the only
-   * expected 'failure' (meaning that the wait for the semaphore was
-   * interrupted by a signal.
-   */
-
-  do
-    {
-      ret = nxsem_wait(&priv->spisem);
-      DEBUGASSERT(ret == OK || ret == -EINTR);
-    }
-  while (ret == -EINTR);
+  nxsem_wait_uninterruptible(&priv->spisem);
 }
 
 /****************************************************************************
@@ -421,7 +409,7 @@ static int spi_interrupt(int irq, void *context, FAR void *arg)
           return OK;
         }
 
-      /* TThe SPI waits until NSS goes active before receiving the serial
+      /* The SPI waits until NSS goes active before receiving the serial
        * clock from an external master. When NSS falls, the clock is
        * validated and the data is loaded in the SPI_RDR depending on the
        * BITS field configured in the SPI_CSR0.  These bits are processed
@@ -576,7 +564,7 @@ static uint16_t spi_dequeue(struct sam_spidev_s *priv)
 
   if (priv->head != priv->tail)
     {
-      /* No, take the oldest value from the tail of the cicular buffer */
+      /* No, take the oldest value from the tail of the circular buffer */
 
       ret = priv->outq[priv->tail];
 
@@ -1191,8 +1179,8 @@ struct spi_sctrlr_s *sam_spi_slave_initialize(int port)
 
       /* Flush any pending interrupts/transfers */
 
-      (void)spi_getreg(priv, SAM_SPI_SR_OFFSET);
-      (void)spi_getreg(priv, SAM_SPI_RDR_OFFSET);
+      spi_getreg(priv, SAM_SPI_SR_OFFSET);
+      spi_getreg(priv, SAM_SPI_RDR_OFFSET);
 
       /* Initialize the SPI semaphore that enforces mutually exclusive
        * access to the SPI registers.

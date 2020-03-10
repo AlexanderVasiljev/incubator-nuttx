@@ -54,12 +54,12 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
-#include <semaphore.h>
 #include <assert.h>
 #include <errno.h>
 
 #include <nuttx/irq.h>
 #include <nuttx/arch.h>
+#include <nuttx/semaphore.h>
 #include <arch/board/board.h>
 
 #include "up_arch.h"
@@ -610,21 +610,7 @@ static const uint8_t g_regoffset[TC_NREGISTERS] =
 
 static void sam_takesem(struct sam_tc_s *tc)
 {
-  int ret;
-
-  do
-    {
-      /* Take the semaphore (perhaps waiting) */
-
-      ret = nxsem_wait(&tc->exclsem);
-
-      /* The only case that an error should occur here is if the wait was
-       * awakened by a signal.
-       */
-
-      DEBUGASSERT(ret == OK || ret == -EINTR);
-    }
-  while (ret == -EINTR);
+  nxsem_wait_uninterruptible(&tc->exclsem);
 }
 
 /****************************************************************************
@@ -677,7 +663,7 @@ static void sam_regdump(struct sam_chan_s *chan, const char *msg)
  * Input Parameters:
  *   tc      - The timer/counter peripheral state
  *   wr      - True:write access false:read access
- *   regval  - The regiser value associated with the access
+ *   regval  - The register value associated with the access
  *   regaddr - The address of the register being accessed
  *
  * Returned Value:
@@ -1040,7 +1026,7 @@ static inline uint32_t sam_tc_tcclks_lookup(int ndx)
  * Input Parameters:
  *   frequency  Desired timer frequency.
  *   tcclks     TCCLKS field value for divisor.
- *   actual     The actual freqency of the MCK
+ *   actual     The actual frequency of the MCK
  *
  * Returned Value:
  *   Zero (OK) if a proper divisor has been found, otherwise a negated errno
@@ -1212,7 +1198,7 @@ static inline struct sam_chan_s *sam_tc_initialize(int channel)
           /* Disable and clear all channel interrupts */
 
           sam_chan_putreg(chan, SAM_TC_IDR_OFFSET, TC_INT_ALL);
-          (void)sam_chan_getreg(chan, SAM_TC_SR_OFFSET);
+          sam_chan_getreg(chan, SAM_TC_SR_OFFSET);
         }
 
       /* Now the timer/counter is initialized */
@@ -1284,7 +1270,7 @@ static inline struct sam_chan_s *sam_tc_initialize(int channel)
 
   /* Attach the timer interrupt handler and enable the timer interrupts */
 
-  (void)irq_attach(chconfig->irq, chconfig->handler, NULL);
+  irq_attach(chconfig->irq, chconfig->handler, NULL);
   up_enable_irq(chconfig->irq);
 
   /* Mark the channel "inuse" */
@@ -1342,7 +1328,7 @@ TC_HANDLE sam_tc_allocate(int channel, int mode)
 
       /* Clear and pending status */
 
-      (void)sam_chan_getreg(chan, SAM_TC_SR_OFFSET);
+      sam_chan_getreg(chan, SAM_TC_SR_OFFSET);
 
       /* And set the requested mode */
 
@@ -1413,7 +1399,7 @@ void sam_tc_start(TC_HANDLE handle)
 
   /* Read the SR to clear any pending interrupts on this channel */
 
-  (void)sam_chan_getreg(chan, SAM_TC_SR_OFFSET);
+  sam_chan_getreg(chan, SAM_TC_SR_OFFSET);
 
   /* Then enable the timer (by setting the CLKEN bit).  Setting SWTRIG
    * will also reset the timer counter and starting the timer.
@@ -1662,7 +1648,7 @@ uint32_t sam_tc_divfreq(TC_HANDLE handle)
  * Input Parameters:
  *   frequency  Desired timer frequency.
  *   tcclks     TCCLKS field value for divisor.
- *   actual     The actual freqency of the MCK
+ *   actual     The actual frequency of the MCK
  *
  * Returned Value:
  *   Zero (OK) if a proper divisor has been found, otherwise a negated errno

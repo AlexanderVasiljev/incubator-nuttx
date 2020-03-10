@@ -1,5 +1,5 @@
 /****************************************************************************
- * arch/xtensa/src/common/arm_schedulesigaction.c
+ * arch/xtensa/src/common/xtensa_schedulesigaction.c
  *
  *   Copyright (C) 2016-2018 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
@@ -181,8 +181,8 @@ void up_schedule_sigaction(struct tcb_s *tcb, sig_deliver_t sigdeliver)
            */
 
           tcb->xcp.sigdeliver   = sigdeliver;
-          tcb->xcp.saved_pc     = CURRENT_REGS[REG_PC];
-          tcb->xcp.saved_ps     = CURRENT_REGS[REG_PS];
+          tcb->xcp.saved_pc     = tcb->xcp.regs[REG_PC];
+          tcb->xcp.saved_ps     = tcb->xcp.regs[REG_PS];
 
           /* Then set up to vector to the trampoline with interrupts
            * disabled
@@ -284,11 +284,11 @@ void up_schedule_sigaction(struct tcb_s *tcb, sig_deliver_t sigdeliver)
                    * disabled
                    */
 
-                  CURRENT_REGS[REG_PC] = (uint32_t)_xtensa_sig_trampoline;
+                  tcb->xcp.regs[REG_PC] = (uint32_t)_xtensa_sig_trampoline;
 #ifdef __XTENSA_CALL0_ABI__
-                  CURRENT_REGS[REG_PS] = (uint32_t)(PS_INTLEVEL(XCHAL_EXCM_LEVEL) | PS_UM);
+                  tcb->xcp.regs[REG_PS] = (uint32_t)(PS_INTLEVEL(XCHAL_EXCM_LEVEL) | PS_UM);
 #else
-                  CURRENT_REGS[REG_PS] = (uint32_t)(PS_INTLEVEL(XCHAL_EXCM_LEVEL) | PS_UM | PS_WOE);
+                  tcb->xcp.regs[REG_PS] = (uint32_t)(PS_INTLEVEL(XCHAL_EXCM_LEVEL) | PS_UM | PS_WOE);
 #endif
                 }
               else
@@ -362,8 +362,8 @@ void up_schedule_sigaction(struct tcb_s *tcb, sig_deliver_t sigdeliver)
            */
 
           tcb->xcp.sigdeliver   = sigdeliver;
-          tcb->xcp.saved_pc     = CURRENT_REGS[REG_PC];
-          tcb->xcp.saved_ps     = CURRENT_REGS[REG_PS];
+          tcb->xcp.saved_pc     = tcb->xcp.regs[REG_PC];
+          tcb->xcp.saved_ps     = tcb->xcp.regs[REG_PS];
 
           /* Increment the IRQ lock count so that when the task is restarted,
            * it will hold the IRQ spinlock.

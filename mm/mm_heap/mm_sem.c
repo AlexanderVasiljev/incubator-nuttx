@@ -41,7 +41,6 @@
 #include <nuttx/config.h>
 
 #include <unistd.h>
-#include <semaphore.h>
 #include <errno.h>
 #include <assert.h>
 
@@ -121,7 +120,7 @@ void mm_seminitialize(FAR struct mm_heap_s *heap)
    * private data sets).
    */
 
-  (void)nxsem_init(&heap->mm_semaphore, 0, 1);
+  nxsem_init(&heap->mm_semaphore, 0, 1);
 
   heap->mm_holder      = NO_HOLDER;
   heap->mm_counts_held = 0;
@@ -194,10 +193,10 @@ int mm_trysemaphore(FAR struct mm_heap_s *heap)
 
       ret = _SEM_TRYWAIT(&heap->mm_semaphore);
       if (ret < 0)
-       {
-         _SEM_GETERROR(ret);
-         goto errout;
-       }
+        {
+          _SEM_GETERROR(ret);
+          goto errout;
+        }
 
       /* We have it.  Claim the heap for the current task and return */
 

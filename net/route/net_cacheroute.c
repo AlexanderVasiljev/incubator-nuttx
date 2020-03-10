@@ -40,7 +40,6 @@
 #include <nuttx/config.h>
 
 #include <string.h>
-#include <semaphore.h>
 #include <assert.h>
 #include <errno.h>
 #include <debug.h>
@@ -77,7 +76,7 @@
   while (0)
 
 /****************************************************************************
- * Public Types
+ * Private Types
  ****************************************************************************/
 
 #ifdef CONFIG_ROUTE_IPv4_CACHEROUTE
@@ -179,8 +178,8 @@ static sem_t g_ipv6_cachelock;
  *
  ****************************************************************************/
 
-#define net_lock_ipv4_cache() nxsem_wait(&g_ipv4_cachelock);
-#define net_lock_ipv6_cache() nxsem_wait(&g_ipv6_cachelock);
+#define net_lock_ipv4_cache() nxsem_wait_uninterruptible(&g_ipv4_cachelock)
+#define net_lock_ipv6_cache() nxsem_wait_uninterruptible(&g_ipv6_cachelock)
 
 /****************************************************************************
  * Name: net_unlock_ipv4_cache and net_unlock_ipv6_cache
@@ -470,7 +469,7 @@ static void net_reset_ipv6_cache(void)
 #endif
 
 /****************************************************************************
- * Public Function Prototypes
+ * Public Functions
  ****************************************************************************/
 
 /****************************************************************************
@@ -688,7 +687,7 @@ int net_addcache_ipv6(FAR struct net_route_ipv6_s *route)
  * Name: net_foreachcache_ipv4/net_foreachcache_ipv6
  *
  * Description:
- *   Traverse the routing table cahce
+ *   Traverse the routing table cache
  *
  * Input Parameters:
  *   handler - Will be called for each route in the routing table cache.
@@ -721,7 +720,7 @@ int net_foreachcache_ipv4(route_handler_ipv4_t handler, FAR void *arg)
   for (cache = g_ipv4_cache.head; ret == 0 && cache != NULL; cache = next)
     {
       /* Get the next entry in the to visit.  We do this BEFORE calling the
-       * handler because the hanlder may delete this entry.
+       * handler because the handler may delete this entry.
        */
 
       next = cache->flink;
@@ -755,7 +754,7 @@ int net_foreachcache_ipv6(route_handler_ipv6_t handler, FAR void *arg)
   for (cache = g_ipv6_cache.head; ret == 0 && cache != NULL; cache = next)
     {
       /* Get the next entry in the to visit.  We do this BEFORE calling the
-       * handler because the hanlder may delete this entry.
+       * handler because the handler may delete this entry.
        */
 
       next = cache->flink;
@@ -786,16 +785,9 @@ int net_foreachcache_ipv6(route_handler_ipv6_t handler, FAR void *arg)
 #ifdef CONFIG_ROUTE_IPv4_CACHEROUTE
 void net_flushcache_ipv4(void)
 {
-  int ret;
-
   /* Get exclusive access to the cache */
 
-  do
-    {
-      ret = net_lock_ipv4_cache();
-    }
-  while (ret == -EINTR);
-  DEBUGASSERT(ret == OK);
+  net_lock_ipv4_cache();
 
   /* Reset the cache */
 
@@ -810,16 +802,9 @@ void net_flushcache_ipv4(void)
 #ifdef CONFIG_ROUTE_IPv6_CACHEROUTE
 void net_flushcache_ipv6(void)
 {
-  int ret;
-
   /* Get exclusive access to the cache */
 
-  do
-    {
-      ret = net_lock_ipv6_cache();
-    }
-  while (ret == -EINTR);
-  DEBUGASSERT(ret == OK);
+  net_lock_ipv6_cache();
 
   /* Reset the cache */
 

@@ -350,21 +350,7 @@ static inline void kinetis_i2c_sem_destroy(FAR struct kinetis_i2cdev_s *priv)
 
 static inline void kinetis_i2c_sem_wait(FAR struct kinetis_i2cdev_s *priv)
 {
-  int ret;
-
-  do
-    {
-      /* Take the semaphore (perhaps waiting) */
-
-      ret = nxsem_wait(&priv->mutex);
-
-      /* The only case that an error should occur here is if the wait was
-       * awakened by a signal.
-       */
-
-      DEBUGASSERT(ret == OK || ret == -EINTR);
-    }
-  while (ret == -EINTR);
+  nxsem_wait_uninterruptible(&priv->mutex);
 }
 
 /****************************************************************************
@@ -390,7 +376,7 @@ static inline void kinetis_i2c_sem_post(struct kinetis_i2cdev_s *priv)
 
 static inline void kinetis_i2c_wait(struct kinetis_i2cdev_s *priv)
 {
-  (void)nxsem_wait(&priv->wait);
+  nxsem_wait(&priv->wait);
 }
 
 /****************************************************************************
@@ -1044,6 +1030,7 @@ static int kinetis_i2c_interrupt(int irq, void *context, void *arg)
                     }
 
                   /* TODO: handle zero-length reads */
+
                   /* Dummy read to initiate reception */
 
                   dummy = kinetis_i2c_getreg(priv, KINETIS_I2C_D_OFFSET);
@@ -1207,8 +1194,8 @@ static int kinetis_i2c_transfer(struct i2c_master_s *dev,
 
       /* Wait for transfer complete */
 
-      (void)wd_start(priv->timeout, I2C_TIMEOUT, kinetis_i2c_timeout, 1,
-                     (uint32_t)priv);
+      wd_start(priv->timeout, I2C_TIMEOUT, kinetis_i2c_timeout, 1,
+               (uint32_t)priv);
       kinetis_i2c_wait(priv);
 
       wd_cancel(priv->timeout);
@@ -1361,7 +1348,7 @@ out:
   kinetis_i2c_sem_post(priv);
   return ret;
 }
-#endif  /* CONFIG_I2C_RESET */
+#endif /* CONFIG_I2C_RESET */
 
 /****************************************************************************
  * Public Functions
@@ -1409,8 +1396,7 @@ struct i2c_master_s *kinetis_i2cbus_initialize(int port)
 #endif
 
     default:
-      i2cerr("ERROR: Kinetis I2C Only suppors ports 0 and %d\n",
-             KINETIS_NI2C - 1);
+      i2cerr("ERROR: Unsupported I2C port %d\n", port);
       return NULL;
     }
 
@@ -1424,9 +1410,11 @@ struct i2c_master_s *kinetis_i2cbus_initialize(int port)
           priv->refs--;
           goto errout;
       }
+
       kinetis_i2c_sem_init(priv);
       kinetis_i2c_init(priv);
     }
+
   leave_critical_section(flags);
 
   return &priv->dev;
@@ -1434,7 +1422,6 @@ struct i2c_master_s *kinetis_i2cbus_initialize(int port)
 errout:
   leave_critical_section(flags);
   return NULL;
-
 }
 
 /****************************************************************************

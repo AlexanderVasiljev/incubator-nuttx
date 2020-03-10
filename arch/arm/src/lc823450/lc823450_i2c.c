@@ -46,7 +46,6 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include <semaphore.h>
 #include <assert.h>
 #include <errno.h>
 #include <debug.h>
@@ -262,21 +261,7 @@ static struct lc823450_i2c_priv_s lc823450_i2c1_priv =
 
 static inline void lc823450_i2c_sem_wait(FAR struct lc823450_i2c_priv_s *priv)
 {
-  int ret;
-
-  do
-    {
-      /* Take the semaphore (perhaps waiting) */
-
-      ret = nxsem_wait(&priv->sem_excl);
-
-      /* The only case that an error should occur here is if the wait was
-       * awakened by a signal.
-       */
-
-      DEBUGASSERT(ret == OK || ret == -EINTR);
-    }
-  while (ret == -EINTR);
+  nxsem_wait_uninterruptible(&priv->sem_excl);
 }
 
 /****************************************************************************
@@ -310,7 +295,7 @@ static inline int lc823450_i2c_sem_waitdone(FAR struct lc823450_i2c_priv_s *priv
     {
       /* Get the current time */
 
-      (void)clock_gettime(CLOCK_REALTIME, &abstime);
+      clock_gettime(CLOCK_REALTIME, &abstime);
 
       /* Calculate a time in the future */
 
@@ -329,13 +314,12 @@ static inline int lc823450_i2c_sem_waitdone(FAR struct lc823450_i2c_priv_s *priv
 
       /* Wait until either the transfer is complete or the timeout expires */
 
-      ret = nxsem_timedwait(&priv->sem_isr, &abstime);
-      if (ret < 0 && errno != -EINTR)
+      ret = nxsem_timedwait_uninterruptible(&priv->sem_isr, &abstime);
+      if (ret < 0)
         {
 
           /* Break out of the loop on irrecoverable errors.  This would
            * include timeouts and mystery errors reported by nxsem_timedwait.
-           * NOTE that we try again if we are awakened by a signal (EINTR).
            */
           break;
         }
@@ -507,7 +491,7 @@ static int lc823450_i2c_reset(FAR struct i2c_master_s *dev)
   modifyreg32(priv->config->base + I2CCTL, I2C_CTL_FMODE, I2C_CTL_FMODE);
   return OK;
 }
-#endif  /* CONFIG_I2C_RESET */
+#endif /* CONFIG_I2C_RESET */
 
 /****************************************************************************
  * Name: lc823450_i2c_enableirq
@@ -759,7 +743,7 @@ static int lc823450_i2c_poll(FAR struct lc823450_i2c_priv_s *priv)
             }
           else
             {
-              /* We need restart from START conditon. If transfer direction is different
+              /* We need restart from START condition. If transfer direction is different
                * between current message and next message, restart is necessary.
                */
 
@@ -1123,7 +1107,7 @@ FAR struct i2c_master_s *lc823450_i2cbus_initialize(int port)
 #ifndef CONFIG_I2C_POLLED
       nxsem_init(&priv->sem_isr, 0, 0);
 #endif
-      (void)lc823450_i2c_init(priv, port);
+      lc823450_i2c_init(priv, port);
     }
 
   leave_critical_section(flags);

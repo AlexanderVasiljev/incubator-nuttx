@@ -41,7 +41,6 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include <semaphore.h>
 #include <string.h>
 #include <assert.h>
 #include <debug.h>
@@ -610,21 +609,7 @@ static struct sam_dev_s g_hsmci1;
 
 static void sam_takesem(struct sam_dev_s *priv)
 {
-  int ret;
-
-  do
-    {
-      /* Take the semaphore (perhaps waiting) */
-
-      ret = nxsem_wait(&priv->waitsem);
-
-      /* The only case that an error should occur here is if the wait was
-       * awakened by a signal.
-       */
-
-      DEBUGASSERT(ret == OK || ret == -EINTR);
-    }
-  while (ret == -EINTR);
+  nxsem_wait_uninterruptible(&priv->waitsem);
 }
 
 /****************************************************************************
@@ -843,7 +828,7 @@ static void sam_disablexfrints(struct sam_dev_s *priv)
  * Name: sam_enableints
  *
  * Description:
- *   Enable the previously configured HSMCI interrupts needed to suport the
+ *   Enable the previously configured HSMCI interrupts needed to support the
  *   wait and transfer functions.
  *
  * Input Parameters:
@@ -1306,7 +1291,7 @@ static void sam_endwait(struct sam_dev_s *priv, sdio_eventset_t wkupevent)
 {
   /* Cancel the watchdog timeout */
 
-  (void)wd_cancel(priv->waitwdog);
+  wd_cancel(priv->waitwdog);
 
   /* Disable event-related interrupts and save wakeup event */
 
@@ -1929,7 +1914,7 @@ static int sam_attach(FAR struct sdio_dev_s *dev)
        */
 
       sam_putreg(priv, 0xffffffff, SAM_HSMCI_IDR_OFFSET);
-      (void)sam_getreg(priv, SAM_HSMCI_SR_OFFSET);
+      sam_getreg(priv, SAM_HSMCI_SR_OFFSET);
 
       /* Enable HSMCI interrupts at the NVIC.  They can now be enabled at
        * the HSMCI controller as needed.
@@ -2343,11 +2328,11 @@ static int sam_cancel(FAR struct sdio_dev_s *dev)
 
   /* Clearing (most) pending interrupt status by reading the status register */
 
-  (void)sam_getreg(priv, SAM_HSMCI_SR_OFFSET);
+  sam_getreg(priv, SAM_HSMCI_SR_OFFSET);
 
   /* Cancel any watchdog timeout */
 
-  (void)wd_cancel(priv->waitwdog);
+  wd_cancel(priv->waitwdog);
 
   /* Make sure that the DMA is stopped (it will be stopped automatically
    * on normal transfers, but not necessarily when the transfer terminates
@@ -2485,7 +2470,7 @@ static int sam_waitresponse(FAR struct sdio_dev_s *dev, uint32_t cmd)
  *
  * Returned Value:
  *   Number of bytes sent on success; a negated errno on failure.  Here a
- *   failure means only a failure to obtain the requested reponse (due to
+ *   failure means only a failure to obtain the requested response (due to
  *   transport problem -- timeout, CRC, etc.).  The implementation only
  *   assures that the response is returned intact and does not check errors
  *   within the response itself.
@@ -2708,7 +2693,7 @@ static void sam_waitenable(FAR struct sdio_dev_s *dev,
    * pending after this point must be valid event indications.
    */
 
-  (void)sam_getreg(priv, SAM_HSMCI_SR_OFFSET);
+  sam_getreg(priv, SAM_HSMCI_SR_OFFSET);
 
   /* Wait interrupts are configured here, but not enabled until
    * sam_eventwait() is called.  Why?  Because the XFRDONE interrupt is
@@ -2880,7 +2865,7 @@ static void sam_callbackenable(FAR struct sdio_dev_s *dev,
  *
  * Input Parameters:
  *   dev -      Device-specific state data
- *   callback - The funtion to call on the media change
+ *   callback - The function to call on the media change
  *   arg -      A caller provided value to return with the callback
  *
  * Returned Value:
@@ -3114,7 +3099,7 @@ static int sam_dmasendsetup(FAR struct sdio_dev_s *dev,
   sam_dmastart(priv->dma, sam_dmacallback, priv);
 
   /* Configure transfer-related interrupts.  Transfer interrupts are not
-   * enabled until after the transfer is stard with an SD command (i.e.,
+   * enabled until after the transfer is start with an SD command (i.e.,
    * at the beginning of sam_eventwait().
    */
 

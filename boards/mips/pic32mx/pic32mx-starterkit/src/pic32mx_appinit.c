@@ -200,7 +200,7 @@ static int nsh_waiter(int argc, char *argv[])
         {
           /* Yes.. enumerate the newly connected device */
 
-          (void)CONN_ENUMERATE(g_usbconn, hport);
+          CONN_ENUMERATE(g_usbconn, hport);
         }
     }
 
@@ -251,7 +251,7 @@ static int nsh_sdinitialize(void)
       goto errout;
     }
 
-  syslog(LOG_INFO, "Successfuly bound SPI port %d to MMC/SD slot %d\n",
+  syslog(LOG_INFO, "Successfully bound SPI port %d to MMC/SD slot %d\n",
          CONFIG_NSH_MMCSDSPIPORTNO,
          CONFIG_NSH_MMCSDSLOTNO);
   return OK;

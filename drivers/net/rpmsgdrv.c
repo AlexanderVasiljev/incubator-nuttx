@@ -255,21 +255,7 @@ static const rpmsg_ept_cb g_net_rpmsg_drv_handler[] =
 
 static void net_rpmsg_drv_wait(FAR sem_t *sem)
 {
-  int ret;
-
-  do
-    {
-      /* Take the semaphore (perhaps waiting) */
-
-      ret = net_lockedwait(sem);
-
-      /* The only case that an error should occur here is if the wait was
-       * awakened by a signal.
-       */
-
-      DEBUGASSERT(ret == OK || ret == -EINTR);
-    }
-  while (ret == -EINTR);
+  net_lockedwait_uninterruptible(sem);
 }
 
 /****************************************************************************
@@ -503,7 +489,6 @@ static int net_rpmsg_drv_sockioctl_task(int argc, FAR char *argv[])
       protocol = IPPROTO_ICMP6;
     }
 
-  sock.s_crefs = 1; /* Initialize reference count manually */
   msg->header.result = psock_socket(domain, type, protocol, &sock);
   if (msg->header.result >= 0)
     {
@@ -676,7 +661,7 @@ static int net_rpmsg_drv_transfer_handler(FAR struct rpmsg_endpoint *ept,
 #ifdef CONFIG_NET_IPv6
   if (net_rpmsg_drv_is_ipv6(dev))
     {
-      ninfo("Iv6 frame\n");
+      ninfo("IPv6 frame\n");
       NETDEV_RXIPV6(dev);
 
       /* Dispatch IPv6 packet to the network layer */
@@ -847,7 +832,7 @@ static void net_rpmsg_drv_poll_work(FAR void *arg)
        * progress, we will missing TCP time state updates?
        */
 
-      devif_timer(dev, net_rpmsg_drv_txpoll);
+      devif_timer(dev, NET_RPMSG_DRV_WDDELAY, net_rpmsg_drv_txpoll);
     }
 
   /* Setup the watchdog poll timer again */

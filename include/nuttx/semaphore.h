@@ -1,7 +1,7 @@
 /****************************************************************************
  * include/nuttx/semaphore.h
  *
- *   Copyright (C) 2014-2017 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2014-2017, 2020 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -41,6 +41,7 @@
  ****************************************************************************/
 
 #include <nuttx/config.h>
+#include <nuttx/compiler.h>
 
 #include <errno.h>
 #include <semaphore.h>
@@ -191,7 +192,7 @@ int nxsem_init(FAR sem_t *sem, int pshared, unsigned int value);
  *
  ****************************************************************************/
 
-int nxsem_destroy (FAR sem_t *sem);
+int nxsem_destroy(FAR sem_t *sem);
 
 /****************************************************************************
  * Name: nxsem_wait
@@ -539,6 +540,7 @@ int sem_setprotocol(FAR sem_t *sem, int protocol);
  *
  ****************************************************************************/
 
+#ifdef CONFIG_HAVE_INLINE
 static inline int nxsem_wait_uninterruptible(FAR sem_t *sem)
 {
   int ret;
@@ -553,6 +555,97 @@ static inline int nxsem_wait_uninterruptible(FAR sem_t *sem)
 
   return ret;
 }
+#else
+int nxsem_wait_uninterruptible(FAR sem_t *sem);
+#endif
+
+/****************************************************************************
+ * Name: nxsem_timedwait_uninterruptible
+ *
+ * Description:
+ *   This function is wrapped version of nxsem_timedwait(), which is
+ *   uninterruptible and convenient for use.
+ *
+ * Input Parameters:
+ *   sem     - Semaphore object
+ *   abstime - The absolute time to wait until a timeout is declared.
+ *
+ * Returned Value:
+ *   EINVAL    The sem argument does not refer to a valid semaphore.  Or the
+ *             thread would have blocked, and the abstime parameter specified
+ *             a nanoseconds field value less than zero or greater than or
+ *             equal to 1000 million.
+ *   ETIMEDOUT The semaphore could not be locked before the specified timeout
+ *             expired.
+ *   EDEADLK   A deadlock condition was detected.
+ *
+ ****************************************************************************/
+
+#ifdef CONFIG_HAVE_INLINE
+static inline int
+  nxsem_timedwait_uninterruptible(FAR sem_t *sem,
+                                  FAR const struct timespec *abstime)
+{
+  int ret;
+
+  do
+    {
+      /* Take the semaphore (perhaps waiting) */
+
+      ret = nxsem_timedwait(sem, abstime);
+    }
+  while (ret == -EINTR || ret == -ECANCELED);
+
+  return ret;
+}
+#else
+int nxsem_timedwait_uninterruptible(FAR sem_t *sem,
+                                    FAR const struct timespec *abstime);
+#endif
+
+/****************************************************************************
+ * Name: nxsem_tickwait_uninterruptible
+ *
+ * Description:
+ *   This function is wrapped version of nxsem_tickwait(), which is
+ *   uninterruptible and convenient for use.
+ *
+ * Input Parameters:
+ *   sem     - Semaphore object
+ *   start   - The system time that the delay is relative to.  If the
+ *             current time is not the same as the start time, then the
+ *             delay will be adjust so that the end time will be the same
+ *             in any event.
+ *   delay   - Ticks to wait from the start time until the semaphore is
+ *             posted.  If ticks is zero, then this function is equivalent
+ *             to sem_trywait().
+ *
+ * Returned Value:
+ *   Zero (OK) is returned on success.  A negated errno value is returned
+ *   on failure. -ETIMEDOUT is returned on the timeout condition.
+ *
+ ****************************************************************************/
+
+#ifdef CONFIG_HAVE_INLINE
+static inline int
+  nxsem_tickwait_uninterruptible(FAR sem_t *sem, clock_t start, uint32_t delay)
+{
+  int ret;
+
+  do
+    {
+      /* Take the semaphore (perhaps waiting) */
+
+      ret = nxsem_tickwait(sem, start, delay);
+    }
+  while (ret == -EINTR || ret == -ECANCELED);
+
+  return ret;
+}
+#else
+int nxsem_tickwait_uninterruptible(FAR sem_t *sem, clock_t start,
+                                   uint32_t delay);
+#endif
 
 #undef EXTERN
 #ifdef __cplusplus

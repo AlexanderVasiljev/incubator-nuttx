@@ -49,7 +49,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <fcntl.h>
-#include <semaphore.h>
 #include <assert.h>
 #include <errno.h>
 #include <fixedmath.h>
@@ -60,6 +59,7 @@
 #include <nuttx/fs/unionfs.h>
 #include <nuttx/fs/dirent.h>
 #include <nuttx/fs/ioctl.h>
+#include <nuttx/semaphore.h>
 
 #include "inode/inode.h"
 
@@ -253,23 +253,14 @@ const struct mountpt_operations unionfs_operations =
 
 static int unionfs_semtake(FAR struct unionfs_inode_s *ui, bool noint)
 {
-  int ret;
-
-  do
+  if (noint)
     {
-      ret = nxsem_wait(&ui->ui_exclsem);
-      if (ret < 0)
-        {
-          DEBUGASSERT(ret == -EINTR || ret == -ECANCELED);
-          if (!noint)
-            {
-              return ret;
-            }
-        }
+      return nxsem_wait_uninterruptible(&ui->ui_exclsem);
     }
-  while (ret == -EINTR);
-
-  return ret;
+  else
+    {
+      return nxsem_wait(&ui->ui_exclsem);
+    }
 }
 
 /****************************************************************************
@@ -774,7 +765,7 @@ static int unionfs_unbind_child(FAR struct unionfs_mountpt_s *um)
     }
   else if (ret > 0)
     {
-      /* REVISIT: This is bad if the file sysem cannot support a deferred
+      /* REVISIT: This is bad if the file system cannot support a deferred
        * unmount.  Ideally it would perform the unmount when the last file
        * is closed.  But I don't think any file system do that.
        */
@@ -814,8 +805,8 @@ static void unionfs_destroy(FAR struct unionfs_inode_s *ui)
 
   /* Unbind the contained file systems */
 
-  (void)unionfs_unbind_child(&ui->ui_fs[0]);
-  (void)unionfs_unbind_child(&ui->ui_fs[1]);
+  unionfs_unbind_child(&ui->ui_fs[0]);
+  unionfs_unbind_child(&ui->ui_fs[1]);
 
   /* Free any allocated prefix strings */
 
@@ -946,7 +937,7 @@ static int unionfs_close(FAR struct file *filep)
 
   /* Get exclusive access to the file system data structures */
 
-  (void)unionfs_semtake(ui, false);
+  unionfs_semtake(ui, false);
 
   DEBUGASSERT(ui != NULL && filep->f_priv != NULL);
   uf = (FAR struct unionfs_file_s *)filep->f_priv;
@@ -1620,7 +1611,7 @@ static int unionfs_closedir(FAR struct inode *mountpt,
 
   /* Get exclusive access to the file system data structures */
 
-  (void)unionfs_semtake(ui, true);
+  unionfs_semtake(ui, true);
 
   DEBUGASSERT(dir);
   fu = &dir->u.unionfs;
@@ -1843,7 +1834,7 @@ static int unionfs_readdir(struct inode *mountpt, struct fs_dirent_s *dir)
                         {
                           /* There is something there!
                            * REVISIT: We could allow files and directories to
-                           * have duplicat names.
+                           * have duplicate names.
                            */
 
                           return -ENOENT;
@@ -1911,7 +1902,7 @@ static int unionfs_readdir(struct inode *mountpt, struct fs_dirent_s *dir)
                     {
                       /* There is something there!
                        * REVISIT: We could allow files and directories to
-                       * have duplicat names.
+                       * have duplicate names.
                        */
 
                       duplicate = true;
@@ -2075,7 +2066,7 @@ static int unionfs_unbind(FAR void *handle, FAR struct inode **blkdriver,
 
   /* Get exclusive access to the file system data structures */
 
-  (void)unionfs_semtake(ui, true);
+  unionfs_semtake(ui, true);
 
   /* Mark the file system as unmounted. */
 
@@ -2287,7 +2278,7 @@ static int unionfs_unlink(FAR struct inode *mountpt,
 
   else
     {
-      /* Check if the file exists with with name on file system 2.  The only
+      /* Check if the file exists with name on file system 2.  The only
        * reason that we check here is so that we can return the more
        * meaningful -ENOSYS if file system 2 is a read-only file system.
        */
@@ -2754,8 +2745,8 @@ static int unionfs_dobind(FAR const char *fspath1, FAR const char *prefix1,
    * this logic calls inode_release() in the unionfs_destroy() function.
    */
 
-  (void)inode_remove(fspath1);
-  (void)inode_remove(fspath2);
+  inode_remove(fspath1);
+  inode_remove(fspath2);
 
   *handle = ui;
   return OK;

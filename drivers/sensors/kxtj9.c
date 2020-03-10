@@ -43,7 +43,6 @@
 
 #include <errno.h>
 #include <stdlib.h>
-#include <semaphore.h>
 #include <errno.h>
 #include <debug.h>
 
@@ -51,6 +50,7 @@
 #include <nuttx/signal.h>
 #include <nuttx/fs/fs.h>
 #include <nuttx/i2c/i2c_master.h>
+#include <nuttx/semaphore.h>
 #include <nuttx/sensors/kxtj9.h>
 #include <nuttx/random.h>
 
@@ -94,7 +94,7 @@
 #define RES_8BIT        0
 #define RES_12BIT       (1 << 6)
 
-/* Data ready funtion enable bit: set during probe if using irq mode */
+/* Data ready function enable bit: set during probe if using irq mode */
 
 #define DRDYE           (1 << 5)
 
@@ -117,7 +117,7 @@
 
 #define KXTJ9_CTRL1_CONFIG  (RES_12BIT | KXTJ9_G_2G | DRDYE)
 
-/* Misc. driver defitions ***************************************************/
+/* Misc. driver definitions *************************************************/
 
 #define ACCEL_NUM_RETRIES   5
 
@@ -341,13 +341,8 @@ static void kxtj9_set_mode_standby(FAR struct kxtj9_dev_s *priv)
 static int kxtj9_configure(FAR struct kxtj9_dev_s *priv, uint8_t odr)
 {
   uint8_t wbuf[0];
-  int ret;
 
-  do
-    {
-      ret = nxsem_wait(&priv->exclsem);
-    }
-  while (ret == -EINTR);
+  nxsem_wait_uninterruptible(&priv->exclsem);
 
   kxtj9_soft_reset(priv);
   kxtj9_set_mode_standby(priv);
@@ -394,13 +389,8 @@ static int kxtj9_configure(FAR struct kxtj9_dev_s *priv, uint8_t odr)
 static int kxtj9_enable(FAR struct kxtj9_dev_s *priv, bool on)
 {
   uint8_t wbuf[1];
-  int ret;
 
-  do
-    {
-      ret = nxsem_wait(&priv->exclsem);
-    }
-  while (ret == -EINTR);
+  nxsem_wait_uninterruptible(&priv->exclsem);
 
   if (!on && priv->power_enabled)
     {
@@ -441,13 +431,8 @@ static int kxtj9_read_sensor_data(FAR struct kxtj9_dev_s *priv,
 {
   int16_t acc_data[3];
   uint8_t data;
-  int ret;
 
-  do
-    {
-      ret = nxsem_wait(&priv->exclsem);
-    }
-  while (ret == -EINTR);
+  nxsem_wait_uninterruptible(&priv->exclsem);
 
   kxtj9_reg_read(priv, XOUT_L, (uint8_t *)acc_data, 6);
 
@@ -523,7 +508,7 @@ static ssize_t kxtj9_read(FAR struct file *filep, FAR char *buffer,
 
   if (nsamples < 1)
     {
-      snerr("ERROR: Bufer too small %lu < %u\n",
+      snerr("ERROR: Buffer too small %lu < %u\n",
             buflen, sizeof(struct kxtj9_sensor_data));
       return (ssize_t)-EINVAL;
     }

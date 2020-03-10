@@ -44,7 +44,9 @@
 #include <debug.h>
 
 #include <nuttx/arch.h>
+#include <nuttx/board.h>
 #include <arch/irq.h>
+#include <arch/board/board.h>
 
 #include "up_internal.h"
 #include "up_arch.h"
@@ -63,7 +65,7 @@ void up_irqinitialize(void)
 {
   /* Disable Machine interrupts */
 
-  (void)up_irq_save();
+ up_irq_save();
 
   /* Disable all global interrupts */
 
@@ -98,13 +100,12 @@ void up_irqinitialize(void)
   /* Attach the ecall interrupt handler */
 
   irq_attach(FE310_IRQ_ECALLM, up_swint, NULL);
-  up_enable_irq(FE310_IRQ_ECALLM);
 
 #ifndef CONFIG_SUPPRESS_INTERRUPTS
 
   /* And finally, enable interrupts */
 
-  (void)up_irq_enable();
+  up_irq_enable();
 #endif
 }
 
@@ -130,11 +131,18 @@ void up_disable_irq(int irq)
   else if (irq > FE310_IRQ_MEXT)
     {
       extirq = irq - FE310_IRQ_MEXT;
-      ASSERT(31 >= extirq); /* TODO */
 
       /* Clear enable bit for the irq */
 
-      modifyreg32(FE310_PLIC_ENABLE1, 1 << extirq, 0);
+      if (0 <= extirq && extirq <= 63)
+        {
+          modifyreg32(FE310_PLIC_ENABLE1 + (4 * (extirq / 32)),
+                      1 << (extirq % 32), 0);
+        }
+      else
+        {
+          ASSERT(false);
+        }
     }
 }
 
@@ -160,11 +168,18 @@ void up_enable_irq(int irq)
   else if (irq > FE310_IRQ_MEXT)
     {
       extirq = irq - FE310_IRQ_MEXT;
-      ASSERT(31 >= extirq); /* TODO */
 
       /* Set enable bit for the irq */
 
-      modifyreg32(FE310_PLIC_ENABLE1, 0, 1 << extirq);
+      if (0 <= extirq && extirq <= 63)
+        {
+          modifyreg32(FE310_PLIC_ENABLE1 + (4 * (extirq / 32)),
+                      0, 1 << (extirq % 32));
+        }
+      else
+        {
+          ASSERT(false);
+        }
     }
 }
 
@@ -172,13 +187,17 @@ void up_enable_irq(int irq)
  * Name: up_get_newintctx
  *
  * Description:
- *   Return a value for EPIC. But FE310 doesn't use EPIC for event control.
+ *   Return initial mstatus when a task is created.
  *
  ****************************************************************************/
 
 uint32_t up_get_newintctx(void)
 {
-  return 0;
+  /* Set machine previous privilege mode to machine mode.
+   * Also set machine previous interrupt enable
+   */
+
+  return (MSTATUS_MPPM | MSTATUS_MPIE);
 }
 
 /****************************************************************************
@@ -191,6 +210,7 @@ uint32_t up_get_newintctx(void)
 
 void up_ack_irq(int irq)
 {
+  board_autoled_on(LED_CPU);
 }
 
 /****************************************************************************
@@ -221,7 +241,7 @@ irqstate_t up_irq_save(void)
 
 void up_irq_restore(irqstate_t flags)
 {
-  /* Machine mode - mstatus */
+  /* Write flags to mstatus */
 
   asm volatile("csrw mstatus, %0" : /* no output */ : "r" (flags));
 }
@@ -243,7 +263,7 @@ irqstate_t up_irq_enable(void)
 
   /* TODO: should move to up_enable_irq() */
 
-  asm volatile("csrw mie, %0" : /* no output */ : "r"(MIE_MEIE));
+  asm volatile ("csrrs %0, mie, %1": "=r" (oldstat) : "r"(MIE_MEIE));
 #endif
 
   /* Read mstatus & set machine interrupt enable (MIE) in mstatus */

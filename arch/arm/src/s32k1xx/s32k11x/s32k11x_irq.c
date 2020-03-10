@@ -88,7 +88,7 @@ volatile uint32_t *g_current_regs[1];
  *       s32k11x_dbgmonitor, s32k11x_pendsv, s32k11x_reserved
  *
  * Description:
- *   Handlers for various execptions.  None are handled and all are fatal
+ *   Handlers for various exceptions.  None are handled and all are fatal
  *   error conditions.  The only advantage these provided over the default
  *   unexpected interrupt handler is that they provide a diagnostic output.
  *
@@ -97,7 +97,7 @@ volatile uint32_t *g_current_regs[1];
 #ifdef CONFIG_DEBUG_FEATURES
 static int s32k11x_nmi(int irq, FAR void *context, FAR void *arg)
 {
-  (void)up_irq_save();
+  up_irq_save();
   _err("PANIC!!! NMI received\n");
   PANIC();
   return 0;
@@ -105,7 +105,7 @@ static int s32k11x_nmi(int irq, FAR void *context, FAR void *arg)
 
 static int s32k11x_pendsv(int irq, FAR void *context, FAR void *arg)
 {
-  (void)up_irq_save();
+  up_irq_save();
   _err("PANIC!!! PendSV received\n");
   PANIC();
   return 0;
@@ -113,7 +113,7 @@ static int s32k11x_pendsv(int irq, FAR void *context, FAR void *arg)
 
 static int s32k11x_reserved(int irq, FAR void *context, FAR void *arg)
 {
-  (void)up_irq_save();
+  up_irq_save();
   _err("PANIC!!! Reserved interrupt\n");
   PANIC();
   return 0;

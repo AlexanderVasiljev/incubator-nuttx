@@ -40,7 +40,6 @@
 #include <nuttx/config.h>
 
 #include <string.h>
-#include <semaphore.h>
 #include <debug.h>
 #include <errno.h>
 
@@ -121,7 +120,8 @@ void modlib_registry_lock(void)
            * the wait was awakened by a signal.
            */
 
-          DEBUGASSERT(_SEM_ERRNO(ret) == EINTR || _SEM_ERRNO(ret) == ECANCELED);
+          DEBUGASSERT(_SEM_ERRNO(ret) == EINTR ||
+                      _SEM_ERRNO(ret) == ECANCELED);
           UNUSED(ret);
         }
 
@@ -165,7 +165,7 @@ void modlib_registry_unlock(void)
     {
       g_modlock.holder = NO_HOLDER;
       g_modlock.count  = 0;
-      (void)_SEM_POST(&g_modlock.lock);
+      _SEM_POST(&g_modlock.lock);
     }
 }
 

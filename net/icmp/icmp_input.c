@@ -47,6 +47,7 @@
 #ifdef CONFIG_NET
 
 #include <stdint.h>
+#include <string.h>
 #include <debug.h>
 
 #include <net/if.h>
@@ -128,6 +129,7 @@ static uint16_t icmp_datahandler(FAR struct net_driver_s *dev,
 
   net_ipv4addr_copy(inaddr.sin_addr.s_addr,
                     net_ip4addr_conv32(ipv4->srcipaddr));
+  memset(inaddr.sin_zero, 0, sizeof(inaddr.sin_zero));
 
   /* Copy the src address info into the I/O buffer chain.  We will not wait
    * for an I/O buffer to become available in this context.  It there is
@@ -199,7 +201,7 @@ static uint16_t icmp_datahandler(FAR struct net_driver_s *dev,
   return buflen;
 
 drop_with_chain:
-  (void)iob_free_chain(iob, IOBUSER_NET_SOCK_ICMP);
+  iob_free_chain(iob, IOBUSER_NET_SOCK_ICMP);
 
 drop:
   dev->d_len = 0;

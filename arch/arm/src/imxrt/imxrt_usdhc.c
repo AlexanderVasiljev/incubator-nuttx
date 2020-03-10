@@ -43,7 +43,6 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include <semaphore.h>
 #include <string.h>
 #include <assert.h>
 #include <debug.h>
@@ -78,7 +77,7 @@
 
 /* Configuration ************************************************************/
 
-#if ((defined(CONFIG_IMXRT_USDHC1) && !defined(CONFIG_IMXRT_USDHC2)) ||	\
+#if ((defined(CONFIG_IMXRT_USDHC1) && !defined(CONFIG_IMXRT_USDHC2)) || \
      (defined(CONFIG_IMXRT_USDHC2) && !defined(CONFIG_IMXRT_USDHC1)))
 #  define  IMXRT_MAX_SDHC_DEV_SLOTS  1
 #elif (defined(CONFIG_IMXRT_USDHC1) && defined(CONFIG_IMXRT_USDHC2))
@@ -517,28 +516,14 @@ static struct imxrt_sdhcregs_s g_sampleregs[DEBUG_NSAMPLES];
 
 static void imxrt_takesem(struct imxrt_dev_s *priv)
 {
-  int ret;
-
-  do
-    {
-      /* Take the semaphore (perhaps waiting) */
-
-      ret = nxsem_wait(&priv->waitsem);
-
-      /* The only case that an error should occur here is if the wait was
-       * awakened by a signal.
-       */
-
-      DEBUGASSERT(ret == OK || ret == -EINTR);
-    }
-  while (ret == -EINTR);
+  nxsem_wait_uninterruptible(&priv->waitsem);
 }
 
 /****************************************************************************
  * Name: imxrt_configwaitints
  *
  * Description:
- *   Enable/disable SDIO interrupts needed to suport the wait function
+ *   Enable/disable SDIO interrupts needed to support the wait function
  *
  * Input Parameters:
  *   priv       - A reference to the SDIO device state structure
@@ -1070,7 +1055,7 @@ static void imxrt_endwait(struct imxrt_dev_s *priv, sdio_eventset_t wkupevent)
 {
   /* Cancel the watchdog timeout */
 
-  (void)wd_cancel(priv->waitwdog);
+  wd_cancel(priv->waitwdog);
 
   /* Disable event-related interrupts */
 
@@ -1246,9 +1231,28 @@ static int imxrt_interrupt(int irq, void *context, FAR void *arg)
 
       /* We don't want any more ints now, so switch it off */
 
-      priv->cintints  = 0;
       regval         &= ~USDHC_INT_CINT;
+      priv->cintints  = regval;
       putreg32(regval, priv->addr + IMXRT_USDHC_IRQSIGEN_OFFSET);
+    }
+
+  if ((pending & USDHC_INT_CINS) != 0 || (pending & USDHC_INT_CRM) != 0)
+    {
+      if (up_interrupt_context())
+        {
+          /* Yes.. queue it */
+
+          mcinfo("Queuing callback to %p(%p)\n", priv->callback, priv->cbarg);
+          (void)work_queue(HPWORK, &priv->cbwork, (worker_t)priv->callback,
+                          priv->cbarg, 0);
+        }
+      else
+        {
+          /* No.. then just call the callback here */
+
+          mcinfo("Callback to %p(%p)\n", priv->callback, priv->cbarg);
+          priv->callback(priv->cbarg);
+        }
     }
 
   /* Handle wait events *****************************************************/
@@ -2255,7 +2259,7 @@ static int imxrt_cancel(FAR struct sdio_dev_s *dev)
 
   /* Cancel any watchdog timeout */
 
-  (void)wd_cancel(priv->waitwdog);
+  wd_cancel(priv->waitwdog);
 
   /* If this was a DMA transfer, make sure that DMA is stopped */
 
@@ -2981,8 +2985,8 @@ static void imxrt_callback(void *arg)
           /* Yes.. queue it */
 
           mcinfo("Queuing callback to %p(%p)\n", priv->callback, priv->cbarg);
-          (void)work_queue(HPWORK, &priv->cbwork, (worker_t) priv->callback,
-                           priv->cbarg, 0);
+          work_queue(HPWORK, &priv->cbwork, (worker_t)priv->callback,
+                     priv->cbarg, 0);
         }
       else
         {
@@ -3033,7 +3037,14 @@ void imxrt_usdhc_set_sdio_card_isr(FAR struct sdio_dev_s *dev,
       priv->cintints = 0;
     }
 
-  flags = enter_critical_section();
+#if defined(CONFIG_MMCSD_HAVE_CARDDETECT)
+  if (priv->sw_cd_gpio == 0)
+    {
+      priv->cintints |= USDHC_INT_CINS | USDHC_INT_CRM;
+    }
+#endif
+
+  flags  = enter_critical_section();
   regval = getreg32(priv->addr + IMXRT_USDHC_IRQSIGEN_OFFSET);
   regval = (regval & ~USDHC_INT_CINT) | priv->cintints;
   putreg32(regval, priv->addr + IMXRT_USDHC_IRQSIGEN_OFFSET);
@@ -3088,24 +3099,24 @@ FAR struct sdio_dev_s *imxrt_usdhc_initialize(int slotno)
 
 #ifndef CONFIG_SDIO_MUXBUS
 #if defined(CONFIG_IMXRT_USDHC1_WIDTH_D1_D4)
-      (void)imxrt_config_gpio(PIN_USDHC1_D1);
-      (void)imxrt_config_gpio(PIN_USDHC1_D2);
-      (void)imxrt_config_gpio(PIN_USDHC1_D3);
+      imxrt_config_gpio(PIN_USDHC1_D1);
+      imxrt_config_gpio(PIN_USDHC1_D2);
+      imxrt_config_gpio(PIN_USDHC1_D3);
 #endif
       /* Clocking and CMD pins (all data widths) */
 
-      (void)imxrt_config_gpio(PIN_USDHC1_D0);
-      (void)imxrt_config_gpio(PIN_USDHC1_DCLK);
-      (void)imxrt_config_gpio(PIN_USDHC1_CMD);
+      imxrt_config_gpio(PIN_USDHC1_D0);
+      imxrt_config_gpio(PIN_USDHC1_DCLK);
+      imxrt_config_gpio(PIN_USDHC1_CMD);
 #endif
 
 #if defined(CONFIG_MMCSD_HAVE_CARDDETECT)
 #  if defined(PIN_USDHC1_CD)
-      (void)imxrt_config_gpio(PIN_USDHC1_CD);
+      imxrt_config_gpio(PIN_USDHC1_CD);
 #  else
       if (priv->sw_cd_gpio != 0)
         {
-          (void)imxrt_config_gpio(priv->sw_cd_gpio);
+          imxrt_config_gpio(priv->sw_cd_gpio);
         }
 #  endif
 #endif
@@ -3115,30 +3126,30 @@ FAR struct sdio_dev_s *imxrt_usdhc_initialize(int slotno)
 
 #if defined(CONFIG_IMXRT_USDHC2)
     case IMXRT_USDHC2_BASE:
-      (void)imxrt_config_gpio(PIN_USDHC2_D0);
-      (void)imxrt_config_gpio(PIN_USDHC2_DCLK);
-      (void)imxrt_config_gpio(PIN_USDHC2_CMD);
+      imxrt_config_gpio(PIN_USDHC2_D0);
+      imxrt_config_gpio(PIN_USDHC2_DCLK);
+      imxrt_config_gpio(PIN_USDHC2_CMD);
 
 #  if defined(CONFIG_IMXRT_USDHC2_WIDTH_D1_D4) || defined(CONFIG_IMXRT_USDHC2_WIDTH_D1_D8)
-      (void)imxrt_config_gpio(PIN_USDHC2_D1);
-      (void)imxrt_config_gpio(PIN_USDHC2_D2);
-      (void)imxrt_config_gpio(PIN_USDHC2_D3);
+      imxrt_config_gpio(PIN_USDHC2_D1);
+      imxrt_config_gpio(PIN_USDHC2_D2);
+      imxrt_config_gpio(PIN_USDHC2_D3);
 #  endif
 
 #  if defined(CONFIG_IMXRT_USDHC2_WIDTH_D1_D8)
-      (void)imxrt_config_gpio(PIN_USDHC2_D4);
-      (void)imxrt_config_gpio(PIN_USDHC2_D5);
-      (void)imxrt_config_gpio(PIN_USDHC2_D6);
-      (void)imxrt_config_gpio(PIN_USDHC2_D7);
+      imxrt_config_gpio(PIN_USDHC2_D4);
+      imxrt_config_gpio(PIN_USDHC2_D5);
+      imxrt_config_gpio(PIN_USDHC2_D6);
+      imxrt_config_gpio(PIN_USDHC2_D7);
 #  endif
 
 #  if defined(CONFIG_MMCSD_HAVE_CARDDETECT)
 #    if defined(PIN_USDHC2_CD)
-      (void)imxrt_config_gpio(PIN_USDHC2_CD);
+      imxrt_config_gpio(PIN_USDHC2_CD);
 #    else
       if (priv->sw_cd_gpio != 0)
         {
-          (void)imxrt_config_gpio(priv->sw_cd_gpio);
+          imxrt_config_gpio(priv->sw_cd_gpio);
         }
 #    endif
 #  endif
@@ -3156,4 +3167,4 @@ FAR struct sdio_dev_s *imxrt_usdhc_initialize(int slotno)
   return &g_sdhcdev[slotno].dev;
 }
 
-#endif  /* CONFIG_IMXRT_USDHC */
+#endif /* CONFIG_IMXRT_USDHC */

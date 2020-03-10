@@ -44,7 +44,6 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include <semaphore.h>
 #include <errno.h>
 #include <debug.h>
 
@@ -435,21 +434,7 @@ static inline void s32k1xx_lpi2c_modifyreg(FAR struct s32k1xx_lpi2c_priv_s *priv
 
 static inline void s32k1xx_lpi2c_sem_wait(FAR struct s32k1xx_lpi2c_priv_s *priv)
 {
-  int ret;
-
-  do
-    {
-      /* Take the semaphore (perhaps waiting) */
-
-      ret = nxsem_wait(&priv->sem_excl);
-
-      /* The only case that an error should occur here is if the wait was
-       * awakened by a signal.
-       */
-
-      DEBUGASSERT(ret == OK || ret == -EINTR);
-    }
-  while (ret == -EINTR);
+  nxsem_wait_uninterruptible(&priv->sem_excl);
 }
 
 /****************************************************************************
@@ -535,7 +520,7 @@ static inline int s32k1xx_lpi2c_sem_waitdone(FAR struct s32k1xx_lpi2c_priv_s *pr
     {
       /* Get the current time */
 
-      (void)clock_gettime(CLOCK_REALTIME, &abstime);
+      clock_gettime(CLOCK_REALTIME, &abstime);
 
       /* Calculate a time in the future */
 
@@ -564,12 +549,11 @@ static inline int s32k1xx_lpi2c_sem_waitdone(FAR struct s32k1xx_lpi2c_priv_s *pr
 
       /* Wait until either the transfer is complete or the timeout expires */
 
-      ret = nxsem_timedwait(&priv->sem_isr, &abstime);
-      if (ret < 0 && ret != -EINTR)
+      ret = nxsem_timedwait_uninterruptible(&priv->sem_isr, &abstime);
+      if (ret < 0)
         {
           /* Break out of the loop on irrecoverable errors.  This would
            * include timeouts and mystery errors reported by nxsem_timedwait.
-           * NOTE that we try again if we are awakened by a signal (EINTR).
            */
 
           break;
@@ -909,7 +893,7 @@ static void s32k1xx_lpi2c_tracedump(FAR struct s32k1xx_lpi2c_priv_s *priv)
 }
 #endif /* CONFIG_I2C_TRACE */
 
-/************************************************************************************
+/****************************************************************************
  * Name: s32k1xx_lpi2c_pckfreq
  *
  * Description:
@@ -919,9 +903,10 @@ static void s32k1xx_lpi2c_tracedump(FAR struct s32k1xx_lpi2c_priv_s *priv)
  *   base - The base address of the LPI2C peripheral registers
  *
  * Returned Value:
- *   The frequency of the LPI2C functional input frequency (or zero on a failure)
+ *   The frequency of the LPI2C functional input frequency (or zero on a
+ *   failure)
  *
- ************************************************************************************/
+ ****************************************************************************/
 
 static uint32_t s32k1xx_lpi2c_pckfreq(uintptr_t base)
 {
@@ -1078,7 +1063,8 @@ static void s32k1xx_lpi2c_setclock(FAR struct s32k1xx_lpi2c_priv_s *priv,
                 }
             }
 
-          s32k1xx_lpi2c_modifyreg(priv, S32K1XX_LPI2C_MCFGR1_OFFSET, 0,
+          s32k1xx_lpi2c_modifyreg(priv, S32K1XX_LPI2C_MCFGR1_OFFSET,
+                                LPI2C_MCFGR1_PRESCALE_MASK,
                                 LPI2C_MCFGR1_PRESCALE(best_prescale));
 
           /* Re-enable LPI2C if it was enabled previously */
@@ -1189,11 +1175,17 @@ static int s32k1xx_lpi2c_isr_process(struct s32k1xx_lpi2c_priv_s *priv)
 
   s32k1xx_lpi2c_tracenew(priv, status);
 
-  /* Continue with either sending or reading data */
+  /* After an error we can get an SDF  */
+
+  if (priv->intstate == INTSTATE_DONE && (status & LPI2C_MSR_SDF) != 0)
+    {
+      s32k1xx_lpi2c_traceevent(priv, I2CEVENT_STOP, 0);
+      s32k1xx_lpi2c_putreg(priv, S32K1XX_LPI2C_MSR_OFFSET, LPI2C_MSR_SDF);
+    }
 
   /* Check if there is more bytes to send */
 
-  if (((priv->flags & I2C_M_READ) == 0) && (status & LPI2C_MSR_TDF) != 0)
+  else if (((priv->flags & I2C_M_READ) == 0) && (status & LPI2C_MSR_TDF) != 0)
     {
       if (priv->dcnt > 0)
         {
@@ -1221,7 +1213,7 @@ static int s32k1xx_lpi2c_isr_process(struct s32k1xx_lpi2c_priv_s *priv)
           s32k1xx_lpi2c_traceevent(priv, I2CEVENT_RCVBYTE, priv->dcnt);
 
           /* No interrupts or contex switches should occur in the following
-           * seuence. Otherwise, additional bytes may be sent by the device.
+           * sequence. Otherwise, additional bytes may be sent by the device.
            */
 
 #ifdef CONFIG_I2C_POLLED
@@ -1258,7 +1250,8 @@ static int s32k1xx_lpi2c_isr_process(struct s32k1xx_lpi2c_priv_s *priv)
 
           if ((priv->msgv->flags & I2C_M_NOSTART) == 0)
             {
-              s32k1xx_lpi2c_traceevent(priv, I2CEVENT_STARTRESTART, priv->msgc);
+              s32k1xx_lpi2c_traceevent(priv, I2CEVENT_STARTRESTART,
+                                     priv->msgc);
               s32k1xx_lpi2c_sendstart(priv, priv->msgv->addr);
             }
           else
@@ -1301,21 +1294,27 @@ static int s32k1xx_lpi2c_isr_process(struct s32k1xx_lpi2c_priv_s *priv)
       else if (priv->msgv && ((status & LPI2C_MSR_SDF) != 0))
         {
           s32k1xx_lpi2c_traceevent(priv, I2CEVENT_STOP, 0);
-          s32k1xx_lpi2c_putreg(priv, S32K1XX_LPI2C_MSR_OFFSET, LPI2C_MSR_SDF);
+          s32k1xx_lpi2c_putreg(priv, S32K1XX_LPI2C_MSR_OFFSET,
+                             LPI2C_MSR_SDF);
 
           /* Check is there thread waiting for this event (there should be) */
 
 #ifndef CONFIG_I2C_POLLED
           if (priv->intstate == INTSTATE_WAITING)
             {
+              /* Update Status once at the end */
+
+              priv->status = status;
+
               /* inform the thread that transfer is complete
                * and wake it up
                */
 
-              sem_post(&priv->sem_isr);
+              nxsem_post(&priv->sem_isr);
               priv->intstate = INTSTATE_DONE;
             }
 #else
+          priv->status = status;
           priv->intstate = INTSTATE_DONE;
 #endif
           /* Mark that this transaction stopped */
@@ -1356,19 +1355,23 @@ static int s32k1xx_lpi2c_isr_process(struct s32k1xx_lpi2c_priv_s *priv)
 #ifndef CONFIG_I2C_POLLED
           if (priv->intstate == INTSTATE_WAITING)
             {
+              /* Update Status once at the end */
+
+              priv->status = status;
+
               /* inform the thread that transfer is complete
                * and wake it up
                */
 
-              sem_post(&priv->sem_isr);
+              nxsem_post(&priv->sem_isr);
               priv->intstate = INTSTATE_DONE;
             }
 #else
+          priv->status = status;
           priv->intstate = INTSTATE_DONE;
 #endif
     }
 
-  priv->status = status;
   return OK;
 }
 
@@ -1402,14 +1405,14 @@ static int s32k1xx_lpi2c_init(FAR struct s32k1xx_lpi2c_priv_s *priv)
 {
   /* Power-up and configure GPIOs .
    *
-   * NOTE: Clocking to the LPSPI peripheral must be provided by board-specific logic
-   * as part of the clock configuration logic.
+   * NOTE: Clocking to the LPSPI peripheral must be provided by
+   * board-specific logic as part of the clock configuration logic.
    */
 
   /* Configure pins */
 
-  (void)s32k1xx_pinconfig(priv->config->scl_pin);
-  (void)s32k1xx_pinconfig(priv->config->sda_pin);
+  s32k1xx_pinconfig(priv->config->scl_pin);
+  s32k1xx_pinconfig(priv->config->sda_pin);
 
   /* Reset LPI2C before configuring it */
 
@@ -1762,13 +1765,13 @@ FAR struct i2c_master_s *s32k1xx_i2cbus_initialize(int port)
   switch (port)
     {
 #ifdef CONFIG_S32K1XX_LPI2C0
-    case 1:
+    case 0:
       priv = (struct s32k1xx_lpi2c_priv_s *)&s32k1xx_lpi2c0_priv;
       break;
 #endif
 
 #ifdef CONFIG_S32K1XX_LPI2C1
-    case 2:
+    case 1:
       priv = (struct s32k1xx_lpi2c_priv_s *)&s32k1xx_lpi2c1_priv;
       break;
 #endif

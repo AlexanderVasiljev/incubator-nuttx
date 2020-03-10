@@ -43,13 +43,13 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
-#include <semaphore.h>
 #include <errno.h>
 #include <debug.h>
 
 #include <arch/board/board.h>
 #include <nuttx/irq.h>
 #include <nuttx/arch.h>
+#include <nuttx/semaphore.h>
 #include <nuttx/spi/spi.h>
 
 #include "up_internal.h"
@@ -228,7 +228,7 @@ static uint32_t spi_setfrequency(FAR struct spi_dev_s *dev,
                    uint32_t frequency);
 static void     spi_setmode(FAR struct spi_dev_s *dev, enum spi_mode_e mode);
 static void     spi_setbits(FAR struct spi_dev_s *dev, int nbits);
-static uint16_t spi_send(FAR struct spi_dev_s *dev, uint16_t wd);
+static uint32_t spi_send(FAR struct spi_dev_s *dev, uint32_t wd);
 static void     spi_exchange(FAR struct spi_dev_s *dev,
                              FAR const void *txbuffer, FAR void *rxbuffer,
                              size_t nwords);
@@ -753,7 +753,7 @@ static inline void spi_flush(FAR struct pic32mz_dev_s *priv)
 
   while ((spi_getreg(priv, PIC32MZ_SPI_STAT_OFFSET) & SPI_STAT_SPIRBF) != 0)
     {
-      (void)spi_getreg(priv, PIC32MZ_SPI_BUF_OFFSET);
+      spi_getreg(priv, PIC32MZ_SPI_BUF_OFFSET);
     }
 }
 
@@ -889,7 +889,7 @@ static void spi_dmarxcallback(DMA_HANDLE handle, uint8_t status, void *arg)
 
   /* Cancel the watchdog timeout */
 
-  (void)wd_cancel(priv->dmadog);
+  wd_cancel(priv->dmadog);
 
   /* Sample DMA registers at the time of the callback */
 
@@ -944,7 +944,7 @@ static void spi_dmatxcallback(DMA_HANDLE handle, uint8_t status, void *arg)
 
   /* Cancel the watchdog timeout */
 
-  (void)wd_cancel(priv->dmadog);
+  wd_cancel(priv->dmadog);
 
   /* Sample DMA registers at the time of the callback */
 
@@ -1058,8 +1058,8 @@ static void spi_exchange8(FAR struct pic32mz_dev_s *priv,
       spi_putreg(priv, PIC32MZ_SPI_BUF_OFFSET, (uint32_t)data);
 
 #ifdef CONFIG_PIC32MZ_SPI_ENHBUF
-      /* Wait for the SPIRBE bit in the SPI Status Register to be set to 0. In
-       * enhanced buffer mode, the SPIRBE bit will be cleared in  when the
+      /* Wait for the SPIRBE bit in the SPI Status Register to be set to 0.
+       * In enhanced buffer mode, the SPIRBE bit will be cleared in  when the
        * receive buffer is not empty.
        */
 
@@ -1132,8 +1132,8 @@ static void spi_exchange16(FAR struct pic32mz_dev_s *priv,
       spi_putreg(priv, PIC32MZ_SPI_BUF_OFFSET, (uint32_t)data);
 
 #ifdef CONFIG_PIC32MZ_SPI_ENHBUF
-      /* Wait for the SPIRBE bit in the SPI Status Register to be set to 0. In
-       * enhanced buffer mode, the SPIRBE bit will be cleared in  when the
+      /* Wait for the SPIRBE bit in the SPI Status Register to be set to 0.
+       * In enhanced buffer mode, the SPIRBE bit will be cleared in  when the
        * receive buffer is not empty.
        */
 
@@ -1169,12 +1169,12 @@ static void spi_exchange16(FAR struct pic32mz_dev_s *priv,
  * Name: spi_lock
  *
  * Description:
- *   On SPI busses where there are multiple devices, it will be necessary to
- *   lock SPI to have exclusive access to the busses for a sequence of
+ *   On SPI buses where there are multiple devices, it will be necessary to
+ *   lock SPI to have exclusive access to the buses for a sequence of
  *   transfers.  The bus should be locked before the chip is selected. After
  *   locking the SPI bus, the caller should then also call the setfrequency,
  *   setbits, and setmode methods to make sure that the SPI is properly
- *   configured for the device.  If the SPI buss is being shared, then it
+ *   configured for the device.  If the SPI bus is being shared, then it
  *   may have been left in an incompatible state.
  *
  * Input Parameters:
@@ -1193,24 +1193,11 @@ static int spi_lock(FAR struct spi_dev_s *dev, bool lock)
 
   if (lock)
     {
-      /* Take the semaphore (perhaps waiting) */
-
-      do
-        {
-          ret = nxsem_wait(&priv->exclsem);
-
-          /* The only case that an error should occur here is if the wait
-           * was awakened by a signal.
-           */
-
-          DEBUGASSERT(ret == OK || ret == -EINTR);
-        }
-      while (ret == -EINTR);
+      ret = nxsem_wait_uninterruptible(&priv->exclsem);
     }
   else
     {
-      (void)nxsem_post(&priv->exclsem);
-      ret = OK;
+      ret = nxsem_post(&priv->exclsem);
     }
 
   return ret;
@@ -1321,10 +1308,10 @@ static void spi_setmode(FAR struct spi_dev_s *dev, enum spi_mode_e mode)
        *
        *   CPOL=0: The inactive value of the clock is zero
        *   CPOL=1: The inactive value of the clock is one
-       *   CPHA=0: Data is captured on the clock's inactive-to-active edge and
-       *           data is propagated on a active-to-inactive edge.
-       *   CPHA=1: Data is captured on the clock's active-to-inactive edge and
-       *           data is propagated on a active-to-inactive edge.
+       *   CPHA=0: Data is captured on the clock's inactive-to-active edge
+       *           and data is propagated on a active-to-inactive edge.
+       *   CPHA=1: Data is captured on the clock's active-to-inactive edge
+       *           and data is propagated on a active-to-inactive edge.
        *
        * CON Register mapping:
        *   CPOL=0 corresponds to CON:CKP=0; CPOL=1 corresponds to CON:CKP=1
@@ -1447,7 +1434,7 @@ static void spi_setbits(FAR struct spi_dev_s *dev, int nbits)
  *
  ****************************************************************************/
 
-static uint16_t spi_send(FAR struct spi_dev_s *dev, uint16_t wd)
+static uint32_t spi_send(FAR struct spi_dev_s *dev, uint32_t wd)
 {
   FAR struct pic32mz_dev_s *priv = (FAR struct pic32mz_dev_s *)dev;
 
@@ -1469,7 +1456,7 @@ static uint16_t spi_send(FAR struct spi_dev_s *dev, uint16_t wd)
       spi_exchange16(priv, &txword, &rxword, 1);
 
       spiinfo("Sent %04x received %04x\n", txword, rxword);
-      return rxword;
+      return (uint32_t)rxword;
     }
   else
     {
@@ -1483,7 +1470,7 @@ static uint16_t spi_send(FAR struct spi_dev_s *dev, uint16_t wd)
       spi_exchange8(priv, &txbyte, &rxbyte, 1);
 
       spiinfo("Sent %02x received %02x\n", txbyte, rxbyte);
-      return (uint16_t)rxbyte;
+      return (uint32_t)rxbyte;
     }
 }
 
@@ -1620,8 +1607,8 @@ static void spi_exchange(FAR struct spi_dev_s *dev, FAR const void *txbuffer,
       /* Yes, setup the DMA transfer with the RX buffer.
        * We need a DMA ISR for:
        *  1 - Block done: The DMA transfer has completed succuessfully.
-       *  2 - Address error: An address error occured during the transfer.
-       *  3 - Transfer abort: Abort event occured. (i.e. SPI Error)
+       *  2 - Address error: An address error occurred during the transfer.
+       *  3 - Transfer abort: Abort event occurred. (i.e. SPI Error)
        */
 
       rxcfg.priority = CONFIG_PIC32MZ_SPI_DMA_RXPRIO;
@@ -1665,8 +1652,8 @@ static void spi_exchange(FAR struct spi_dev_s *dev, FAR const void *txbuffer,
       /* Yes, setup the DMA transfer with the TX buffer.
        * We need a DMA ISR for:
        *  1 - Block done: The DMA transfer has completed succuessfully.
-       *  2 - Address error: An address error occured during the transfer.
-       *  3 - Transfer abort: Abort event occured. (i.e. SPI Error)
+       *  2 - Address error: An address error occurred during the transfer.
+       *  3 - Transfer abort: Abort event occurred. (i.e. SPI Error)
        */
 
       txcfg.priority = CONFIG_PIC32MZ_SPI_DMA_TXPRIO;
@@ -1798,7 +1785,7 @@ static void spi_exchange(FAR struct spi_dev_s *dev, FAR const void *txbuffer,
 
       /* Cancel the watchdog timeout */
 
-      (void)wd_cancel(priv->dmadog);
+      wd_cancel(priv->dmadog);
 
       /* Check if we were awakened by an error of some kind. EINTR is not a
        * failure. It simply means that the wait was awakened by a signal.
@@ -1850,8 +1837,8 @@ static void spi_exchange(FAR struct spi_dev_s *dev, FAR const void *txbuffer,
     }
   else
     {
-      up_invalidate_dcache((uintptr_t)dummy,
-                           (uintptr_t)dummy + CONFIG_PIC32MZ_SPI_DMABUFFSIZE);
+      up_invalidate_dcache((uintptr_t)dummy, (uintptr_t)dummy +
+                           CONFIG_PIC32MZ_SPI_DMABUFFSIZE);
     }
 }
 #endif /* CONFIG_PIC32MZ_SPI_DMA */

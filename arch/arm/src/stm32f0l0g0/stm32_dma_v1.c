@@ -42,12 +42,12 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include <semaphore.h>
 #include <debug.h>
 #include <errno.h>
 
 #include <nuttx/irq.h>
 #include <nuttx/arch.h>
+#include <nuttx/semaphore.h>
 
 #include <arch/chip/chip.h>
 
@@ -89,7 +89,7 @@
  * Private Types
  ****************************************************************************/
 
-/* This structure descibes one DMA channel */
+/* This structure describes one DMA channel */
 
 struct stm32_dma_s
 {
@@ -226,26 +226,12 @@ static inline void dmachan_putreg(struct stm32_dma_s *dmach,
 
 static void stm32_dmatake(FAR struct stm32_dma_s *dmach)
 {
-  int ret;
-
-  do
-    {
-      /* Take the semaphore (perhaps waiting) */
-
-      ret = nxsem_wait(&dmach->sem);
-
-      /* The only case that an error should occur here is if the wait was
-       * awakened by a signal.
-       */
-
-      DEBUGASSERT(ret == OK || ret == -EINTR);
-    }
-  while (ret == -EINTR);
+  nxsem_wait_uninterruptible(&dmach->sem);
 }
 
 static inline void stm32_dmagive(FAR struct stm32_dma_s *dmach)
 {
-  (void)nxsem_post(&dmach->sem);
+  nxsem_post(&dmach->sem);
 }
 
 /****************************************************************************
@@ -357,7 +343,7 @@ void weak_function up_dma_initialize(void)
 
       /* Attach DMA interrupt vectors */
 
-      (void)irq_attach(dmach->irq, stm32_dmainterrupt, NULL);
+      irq_attach(dmach->irq, stm32_dmainterrupt, NULL);
 
       /* Disable the DMA channel */
 
@@ -559,7 +545,7 @@ void stm32_dmastart(DMA_HANDLE handle, dma_callback_t callback,
 
   DEBUGASSERT(handle != NULL);
 
-  /* Save the callback info.  This will be invoked whent the DMA commpletes */
+  /* Save the callback info.  This will be invoked whent the DMA completes */
 
   dmach->callback = callback;
   dmach->arg      = arg;
@@ -818,4 +804,4 @@ uint32_t stm32_dma_intget(unsigned int chndx)
   return dmabase_getreg(dmach, STM32_DMA_ISR_OFFSET) &
          DMA_ISR_CHAN_MASK(dmach->chan);
 }
-#endif  /* CONFIG_ARCH_HIPRI_INTERRUPT */
+#endif /* CONFIG_ARCH_HIPRI_INTERRUPT */

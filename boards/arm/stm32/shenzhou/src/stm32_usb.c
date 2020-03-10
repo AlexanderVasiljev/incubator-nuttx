@@ -121,7 +121,7 @@ static int usbhost_waiter(int argc, char *argv[])
         {
           /* Yes.. enumerate the newly connected device */
 
-          (void)CONN_ENUMERATE(g_usbconn, hport);
+          CONN_ENUMERATE(g_usbconn, hport);
         }
     }
 
@@ -308,6 +308,3 @@ void stm32_usbsuspend(FAR struct usbdev_s *dev, bool resume)
 #endif
 
 #endif /* CONFIG_STM32_OTGFS */
-
-
-

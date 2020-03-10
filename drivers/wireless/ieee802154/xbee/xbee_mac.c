@@ -110,7 +110,7 @@ static void xbee_assoctimer(int argc, uint32_t arg, ...)
   FAR struct xbee_priv_s *priv = (FAR struct xbee_priv_s *)arg;
   int ret;
 
-  /* In complex environments, we cannot do SPI transfers from the timout
+  /* In complex environments, we cannot do SPI transfers from the timeout
    * handler because semaphores are probably used to lock the SPI bus.  In
    * this case, we will defer processing to the worker thread.  This is also
    * much kinder in the use of system resources and is, therefore, probably
@@ -124,7 +124,7 @@ static void xbee_assoctimer(int argc, uint32_t arg, ...)
    */
 
   ret = work_queue(HPWORK, &priv->assocwork, xbee_assocworker, (FAR void *)priv, 0);
-  (void)ret;
+  UNUSED(ret);
   DEBUGASSERT(ret == OK);
 }
 
@@ -154,8 +154,8 @@ static void xbee_assocworker(FAR void *arg)
     {
       xbee_send_atquery(priv, "AI");
 
-      (void)wd_start(priv->assocwd, XBEE_ASSOC_POLLDELAY, xbee_assoctimer,
-                     1, (wdparm_t)arg);
+      wd_start(priv->assocwd, XBEE_ASSOC_POLLDELAY, xbee_assoctimer,
+               1, (wdparm_t)arg);
     }
 }
 
@@ -380,8 +380,8 @@ int xbee_req_data(XBEEHANDLE xbee,
     {
       /* Setup a timeout in case the XBee never responds with a tx status */
 
-      (void)wd_start(priv->reqdata_wd, XBEE_RESPONSE_TIMEOUT, xbee_reqdata_timeout,
-                     1, (wdparm_t)priv);
+      wd_start(priv->reqdata_wd, XBEE_RESPONSE_TIMEOUT, xbee_reqdata_timeout,
+               1, (wdparm_t)priv);
 
       /* Send the frame */
 
@@ -392,7 +392,7 @@ int xbee_req_data(XBEEHANDLE xbee,
 
       while (nxsem_wait(&priv->txdone_sem) < 0);
 
-      /* If the transmit timeout has occured, and there are no IOBs available,
+      /* If the transmit timeout has occurred, and there are no IOBs available,
        * we may be blocking the context needed to free the IOBs. We cannot receive
        * the Tx status because it requires an IOB. Therefore, if we have hit the
        * timeout, and there are no IOBs, let's move on assuming the transmit was
@@ -429,7 +429,7 @@ int xbee_req_data(XBEEHANDLE xbee,
  *   attribute.
  *
  *   NOTE: The standard specifies that the attribute value should be returned
- *   via the asynchronous MLME-GET.confirm primitve.  However, in our
+ *   via the asynchronous MLME-GET.confirm primitive.  However, in our
  *   implementation, we synchronously return the value immediately.Therefore, we
  *   merge the functionality of the MLME-GET.request and MLME-GET.confirm
  *   primitives together.
@@ -535,7 +535,7 @@ int xbee_req_get(XBEEHANDLE xbee, enum ieee802154_attr_e attr,
  *   indicated MAC PIB attribute.
  *
  *   NOTE: The standard specifies that confirmation should be indicated via
- *   the asynchronous MLME-SET.confirm primitve.  However, in our implementation
+ *   the asynchronous MLME-SET.confirm primitive.  However, in our implementation
  *   we synchronously return the status from the request. Therefore, we do merge
  *   the functionality of the MLME-SET.request and MLME-SET.confirm primitives
  *   together.

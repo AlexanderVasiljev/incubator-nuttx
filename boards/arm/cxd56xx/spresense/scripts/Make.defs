@@ -1,5 +1,5 @@
 ############################################################################
-# boards/arm/cxd56xx/spresense/nsh/Make.defs
+# boards/arm/cxd56xx/spresense/scripts/Make.defs
 #
 #   Copyright (C) 2014 Gregory Nutt. All rights reserved.
 #   Author: Gregory Nutt <gnutt@nuttx.org>
@@ -35,6 +35,7 @@
 
 include ${TOPDIR}/.config
 include ${TOPDIR}/tools/Config.mk
+include ${TOPDIR}/boards/arm/cxd56xx/scripts/Config.mk
 include ${TOPDIR}/arch/arm/src/armv7-m/Toolchain.defs
 
 # Setup for the kind of memory that we are executing from
@@ -65,7 +66,7 @@ AR = $(ARCROSSDEV)ar rcs
 NM = $(ARCROSSDEV)nm
 OBJCOPY = $(CROSSDEV)objcopy
 OBJDUMP = $(CROSSDEV)objdump
-STRIP = $(CROSSDEV)strip
+STRIP = $(CROSSDEV)strip --strip-unneeded
 
 MKNXFLAT = mknxflat
 LDNXFLAT = ldnxflat
@@ -105,9 +106,9 @@ CMODULEFLAGS = $(CFLAGS) -mlong-calls # --target1-abs
 
 LDMODULEFLAGS = -r -e module_initialize
 ifeq ($(WINTOOL),y)
-  LDMODULEFLAGS += -T "${shell cygpath -w $(TOPDIR)/sched/module/gnu-elf.ld}"
+  LDMODULEFLAGS += -T "${shell cygpath -w $(TOPDIR)/libs/libc/modlib/gnu-elf.ld}"
 else
-  LDMODULEFLAGS += -T $(TOPDIR)/sched/module/gnu-elf.ld
+  LDMODULEFLAGS += -T $(TOPDIR)/libs/libc/modlib/gnu-elf.ld
 endif
 
 # ELF module definitions

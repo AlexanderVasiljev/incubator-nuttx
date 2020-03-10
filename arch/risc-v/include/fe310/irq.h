@@ -46,6 +46,8 @@
 /* In mstatus register */
 
 #define MSTATUS_MIE   (0x1 << 3)  /* Machine Interrupt Enable */
+#define MSTATUS_MPIE  (0x1 << 7)  /* Machine Previous Interrupt Enable */
+#define MSTATUS_MPPM  (0x3 << 11) /* Machine Previous Privilege (m-mode) */
 
 /* In mie (machine interrupt enable) register */
 
@@ -77,14 +79,47 @@
 #define FE310_IRQ_MTIMER   (FE310_IRQ_ASYNC + 7)  /* Machine Timer Int */
 #define FE310_IRQ_MEXT     (FE310_IRQ_ASYNC + 11) /* Machine External Int */
 
-/* Machine Grobal External Interrupt */
+/* Machine Global External Interrupt */
 
 #define FE310_IRQ_UART0    (FE310_IRQ_MEXT + 3)
 #define FE310_IRQ_UART1    (FE310_IRQ_MEXT + 4)
 
+#define FE310_IRQ_GPIO0    (FE310_IRQ_MEXT + 8)
+#define FE310_IRQ_GPIO1    (FE310_IRQ_MEXT + 9)
+#define FE310_IRQ_GPIO2    (FE310_IRQ_MEXT + 10)
+#define FE310_IRQ_GPIO3    (FE310_IRQ_MEXT + 11)
+#define FE310_IRQ_GPIO4    (FE310_IRQ_MEXT + 12)
+#define FE310_IRQ_GPIO5    (FE310_IRQ_MEXT + 13)
+#define FE310_IRQ_GPIO6    (FE310_IRQ_MEXT + 14)
+#define FE310_IRQ_GPIO7    (FE310_IRQ_MEXT + 15)
+#define FE310_IRQ_GPIO8    (FE310_IRQ_MEXT + 16)
+#define FE310_IRQ_GPIO9    (FE310_IRQ_MEXT + 17)
+#define FE310_IRQ_GPIO10   (FE310_IRQ_MEXT + 18)
+#define FE310_IRQ_GPIO11   (FE310_IRQ_MEXT + 19)
+#define FE310_IRQ_GPIO12   (FE310_IRQ_MEXT + 20)
+#define FE310_IRQ_GPIO13   (FE310_IRQ_MEXT + 21)
+#define FE310_IRQ_GPIO14   (FE310_IRQ_MEXT + 22)
+#define FE310_IRQ_GPIO15   (FE310_IRQ_MEXT + 23)
+#define FE310_IRQ_GPIO16   (FE310_IRQ_MEXT + 24)
+#define FE310_IRQ_GPIO17   (FE310_IRQ_MEXT + 25)
+#define FE310_IRQ_GPIO18   (FE310_IRQ_MEXT + 26)
+#define FE310_IRQ_GPIO19   (FE310_IRQ_MEXT + 27)
+#define FE310_IRQ_GPIO20   (FE310_IRQ_MEXT + 28)
+#define FE310_IRQ_GPIO21   (FE310_IRQ_MEXT + 29)
+#define FE310_IRQ_GPIO22   (FE310_IRQ_MEXT + 30)
+#define FE310_IRQ_GPIO23   (FE310_IRQ_MEXT + 31)
+#define FE310_IRQ_GPIO24   (FE310_IRQ_MEXT + 32)
+#define FE310_IRQ_GPIO25   (FE310_IRQ_MEXT + 33)
+#define FE310_IRQ_GPIO26   (FE310_IRQ_MEXT + 34)
+#define FE310_IRQ_GPIO27   (FE310_IRQ_MEXT + 35)
+#define FE310_IRQ_GPIO28   (FE310_IRQ_MEXT + 36)
+#define FE310_IRQ_GPIO29   (FE310_IRQ_MEXT + 37)
+#define FE310_IRQ_GPIO30   (FE310_IRQ_MEXT + 38)
+#define FE310_IRQ_GPIO31   (FE310_IRQ_MEXT + 39)
+
 /* Total number of IRQs */
 
-#define NR_IRQS            (FE310_IRQ_UART1 + 1)
+#define NR_IRQS            (FE310_IRQ_GPIO31 + 1)
 
 /****************************************************************************
  * Public Types
@@ -119,4 +154,3 @@ EXTERN irqstate_t up_irq_enable(void);
 #endif
 #endif /* __ASSEMBLY__ */
 #endif /* __ARCH_RISCV_INCLUDE_FE310_IRQ_H */
-

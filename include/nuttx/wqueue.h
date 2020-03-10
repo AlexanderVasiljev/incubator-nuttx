@@ -45,7 +45,6 @@
 
 #include <sys/types.h>
 #include <stdint.h>
-#include <semaphore.h>
 #include <queue.h>
 
 #include <nuttx/clock.h>
@@ -291,7 +290,7 @@ enum work_evtype_e
   WORK_TCP_DISCONNECT,   /* Notify loss of TCP connection */
   WORK_UDP_READAHEAD,    /* Notify that UDP read-ahead data is available */
   WORK_UDP_WRITEBUFFER,  /* Notify that UDP write buffer is empty */
-  WORK_NETLINK_RESPONSE  /* Notify thtat Netlink response is available */
+  WORK_NETLINK_RESPONSE  /* Notify that Netlink response is available */
 };
 
 /* This structure describes one notification and is provided as input to
@@ -307,36 +306,6 @@ struct work_notifier_s
   FAR void *qualifier; /* Event qualifier value */
   FAR void *arg;       /* User-defined worker function argument */
   worker_t worker;     /* The worker function to schedule */
-};
-
-/* This structure describes one notification list entry.  It is cast-
- * compatible with struct work_notifier_s.  This structure is an allocated
- * container for the user notification data.   It is allocated because it
- * must persist until the work is executed and must be freed using
- * kmm_free() by the work.
- *
- * With the work notification is scheduled, the work function will receive
- * the allocated instance of struct work_notifier_entry_s as its input
- * argument.  When it completes the notification operation, the work function
- * is responsible for freeing that instance.
- */
-
-struct work_notifier_entry_s
-{
-  /* This must appear at the beginning of the structure.  A reference to
-   * the struct work_notifier_entry_s instance must be cast-compatible with
-   * struct dq_entry_s.
-   */
-
-  struct work_s work;           /* Used for scheduling the work */
-
-  /* User notification information */
-
-  struct work_notifier_s info;  /* The notification info */
-
-  /* Additional payload needed to manage the notification */
-
-  int16_t key;                  /* Unique ID for the notification */
 };
 
 /****************************************************************************

@@ -72,7 +72,7 @@ pid_t g_pgworker;
 
 /* The page fill worker thread maintains a static variable called g_pftcb.
  * If no fill is in progress, g_pftcb will be NULL. Otherwise, g_pftcb will
- * point to the TCB of the task which is receiving the fill that is in progess.
+ * point to the TCB of the task which is receiving the fill that is in progress.
  *
  * NOTE: I think that this is the only state in which a TCB does not reside
  * in some list.  Here is it in limbo, outside of the normally queuing while
@@ -176,7 +176,7 @@ static void pg_callback(FAR struct tcb_s *tcb, int result)
         {
           pginfo("New worker priority. %d->%d\n",
                  wtcb->sched_priority, priority);
-          (void)nxsched_setpriority(wtcb, priority);
+          nxsched_setpriority(wtcb, priority);
         }
 
       /* Save the page fill result (don't permit the value -EBUSY) */
@@ -192,7 +192,7 @@ static void pg_callback(FAR struct tcb_s *tcb, int result)
   /* Signal the page fill worker thread (in any event) */
 
   pginfo("Signaling worker. PID: %d\n", g_pgworker);
-  (void)nxsig_kill(g_pgworker, SIGWORK);
+  nxsig_kill(g_pgworker, SIGWORK);
 }
 #endif
 
@@ -287,7 +287,7 @@ static inline bool pg_dequeue(void)
 
                   pginfo("New worker priority. %d->%d\n",
                          wtcb->sched_priority, priority);
-                  (void)nxsched_setpriority(wtcb, priority);
+                  nxsched_setpriority(wtcb, priority);
                 }
 
               /* Return with g_pftcb holding the pointer to
@@ -381,8 +381,8 @@ static inline bool pg_startfill(void)
       DEBUGASSERT(result == OK);
 #else
       /* If CONFIG_PAGING_BLOCKINGFILL is defined, then up_fillpage is non-blocking
-       * call. In this case up_fillpage() will accept an additional argument: The page
-       * fill worker thread will provide a callback function, pg_callback.
+       * call. In this case up_fillpage() will accept an additional argument:  The
+       * page fill worker thread will provide a callback function, pg_callback.
        *
        * Calling up_fillpage will start an asynchronous page fill. pg_callback
        * ill be called when the page fill is finished (or an error occurs). This
@@ -451,7 +451,7 @@ static inline void pg_alldone(void)
   g_pftcb = NULL;
   pginfo("New worker priority. %d->%d\n",
          wtcb->sched_priority, CONFIG_PAGING_DEFPRIO);
-  (void)nxsched_setpriority(wtcb, CONFIG_PAGING_DEFPRIO);
+  nxsched_setpriority(wtcb, CONFIG_PAGING_DEFPRIO);
 }
 
 /****************************************************************************
@@ -529,7 +529,7 @@ int pg_worker(int argc, char *argv[])
    */
 
   pginfo("Started\n");
-  (void)up_irq_save();
+  up_irq_save();
   for (; ; )
     {
       /* Wait awhile.  We will wait here until either the configurable timeout
@@ -625,7 +625,7 @@ int pg_worker(int argc, char *argv[])
            */
 
           pginfo("Calling pg_startfill\n");
-          (void)pg_startfill();
+          pg_startfill();
         }
 #else
       /* Are there tasks blocked and waiting for a fill?  Loop until all

@@ -647,7 +647,7 @@ void bcmf_wl_scan_event_handler(FAR struct bcmf_dev_s *priv,
       goto exit_invalid_frame;
     }
 
-  /* wl_escan_result structure cointains a wl_bss_info field */
+  /* wl_escan_result structure contains a wl_bss_info field */
 
   len = result->buflen - sizeof(struct wl_escan_result)
                        + sizeof(struct wl_bss_info);
@@ -988,7 +988,7 @@ int bcmf_wl_enable(FAR struct bcmf_dev_s *priv, bool enable)
   int ret;
   uint32_t out_len;
 
-  /* TODO chek device state */
+  /* TODO check device state */
 
   out_len = 0;
   ret = bcmf_cdc_ioctl(priv, CHIP_STA_INTERFACE, true,
@@ -1117,8 +1117,8 @@ int bcmf_wl_start_scan(FAR struct bcmf_dev_s *priv, struct iwreq *iwr)
 
   /*  Start scan_timeout timer */
 
-  (void)wd_start(priv->scan_timeout, BCMF_SCAN_TIMEOUT_TICK,
-                 bcmf_wl_scan_timeout, 1, (wdparm_t)priv);
+  wd_start(priv->scan_timeout, BCMF_SCAN_TIMEOUT_TICK,
+           bcmf_wl_scan_timeout, 1, (wdparm_t)priv);
 
   return OK;
 

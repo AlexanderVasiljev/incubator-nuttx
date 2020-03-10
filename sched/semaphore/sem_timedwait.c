@@ -1,7 +1,7 @@
 /****************************************************************************
  * sched/semaphore/sem_timedwait.c
  *
- *   Copyright (C) 2011, 2013-2017 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2011, 2013-201, 2020 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -41,7 +41,6 @@
 
 #include <stdint.h>
 #include <unistd.h>
-#include <semaphore.h>
 #include <time.h>
 #include <errno.h>
 #include <debug.h>
@@ -50,7 +49,6 @@
 #include <nuttx/arch.h>
 #include <nuttx/wdog.h>
 #include <nuttx/cancelpt.h>
-#include <nuttx/semaphore.h>
 
 #include "sched/sched.h"
 #include "clock/clock.h"
@@ -192,8 +190,8 @@ int nxsem_timedwait(FAR sem_t *sem, FAR const struct timespec *abstime)
 
   /* Start the watchdog */
 
-  (void)wd_start(rtcb->waitdog, ticks, (wdentry_t)nxsem_timeout,
-                 1, getpid());
+  wd_start(rtcb->waitdog, ticks, (wdentry_t)nxsem_timeout,
+           1, getpid());
 
   /* Now perform the blocking wait.  If nxsem_wait() fails, the
    * negated errno value will be returned below.
@@ -214,6 +212,46 @@ errout_with_irqdisabled:
   rtcb->waitdog = NULL;
   return ret;
 }
+
+/****************************************************************************
+ * Name: nxsem_timedwait_uninterruptible
+ *
+ * Description:
+ *   This function is wrapped version of nxsem_timedwait(), which is
+ *   uninterruptible and convenient for use.
+ *
+ * Input Parameters:
+ *   sem     - Semaphore object
+ *   abstime - The absolute time to wait until a timeout is declared.
+ *
+ * Returned Value:
+ *   EINVAL    The sem argument does not refer to a valid semaphore.  Or the
+ *             thread would have blocked, and the abstime parameter specified
+ *             a nanoseconds field value less than zero or greater than or
+ *             equal to 1000 million.
+ *   ETIMEDOUT The semaphore could not be locked before the specified timeout
+ *             expired.
+ *   EDEADLK   A deadlock condition was detected.
+ *
+ ****************************************************************************/
+
+#ifndef CONFIG_HAVE_INLINE
+int nxsem_timedwait_uninterruptible(FAR sem_t *sem,
+                                    FAR const struct timespec *abstime)
+{
+  int ret;
+
+  do
+    {
+      /* Take the semaphore (perhaps waiting) */
+
+      ret = nxsem_timedwait(sem, abstime);
+    }
+  while (ret == -EINTR || ret == -ECANCELED);
+
+  return ret;
+}
+#endif
 
 /****************************************************************************
  * Name: sem_timedwait
@@ -256,7 +294,7 @@ int sem_timedwait(FAR sem_t *sem, FAR const struct timespec *abstime)
 
   /* sem_timedwait() is a cancellation point */
 
-  (void)enter_cancellation_point();
+  enter_cancellation_point();
 
   /* Let nxsem_timedout() do the work */
 

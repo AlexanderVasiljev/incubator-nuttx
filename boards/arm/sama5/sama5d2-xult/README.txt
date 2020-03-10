@@ -64,7 +64,7 @@ DRAMBOOT, AT25BOOT, SRAMBOOT
 
   The boards/arm/sama5/sama5d4-xult/README.txt also describes variants AT25BOOT and
   SRAMBOOT.  This have not yet been ported to the SAMA5D2-XULT, but are
-  available if they are usefult too you.
+  available if they are useful too you.
 
 Running NuttX from SDRAM
 ========================
@@ -144,7 +144,7 @@ REVISIT: Unverified, cloned text from the SAMA5D4-EK README.txt
   0x0000:0000 - 0x0003:ffff: AT91BootStrap
   0x0004:0000 - 0x000b:ffff: U-Boot
   0x000c:0000 - 0x000f:ffff: U-Boot environment
-  0x0010:0000 - 0x0017:ffff: U-Boot environement redundant
+  0x0010:0000 - 0x0017:ffff: U-Boot environment redundant
   0x0018:0000 - 0x001f:ffff: Device tree (DTB)
   0x0020:0000 - 0x007f:ffff: NuttX
   0x0080:0000 - end:         Available for use as a NAND file system
@@ -203,7 +203,7 @@ REVISIT: Unverified, cloned text from the SAMA5D4-EK README.txt
 
      http://www.at91.com/linux4sam/bin/view/Linux4SAM/U-Boot#Build_U_Boot_from_sources
 
-     A pre-Built binay image is available here:
+     A pre-Built binary image is available here:
 
      ftp://www.at91.com/pub/uboot/u-boot-v2013.07/u-boot-sama5d3_xplained-v2013.07-at91-r1.bin
 
@@ -237,7 +237,7 @@ REVISIT: Unverified, cloned text from the SAMA5D4-EK README.txt
      - Press the "Send File" button
      - Close SAM-BA, remove the USB Device cable.
 
-  You should now be able to interrupt with U-Boot vie the DBGU interface.
+  You should now be able to interrupt with U-Boot via the DBGU interface.
 
   Load NuttX with U-Boot on AT91 boards
   -------------------------------------
@@ -795,6 +795,11 @@ Configurations
 
   Now for the gory details:
 
+  netnsh:
+
+    This is a network enabled configuration based on the NuttShell (NSH)
+    REVISIT:  More to be provided.
+
   nsh:
 
     This configuration directory provide the NuttShell (NSH).  This is a
@@ -834,7 +839,6 @@ Configurations
 
        Device Drivers:
        CONFIG_RAMLOG=y             : Enable the RAM-based logging feature.
-       CONFIG_RAMLOG_CONSOLE=n     : (We don't use the RAMLOG console)
        CONFIG_RAMLOG_SYSLOG=y      : This enables the RAM-based logger as the
                                      system logger.
        CONFIG_RAMLOG_NONBLOCKING=y : Needs to be non-blocking for dmesg

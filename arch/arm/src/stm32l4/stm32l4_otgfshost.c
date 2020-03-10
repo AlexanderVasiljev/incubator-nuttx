@@ -45,7 +45,6 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <semaphore.h>
 #include <string.h>
 #include <errno.h>
 #include <debug.h>
@@ -650,21 +649,7 @@ static inline void stm32l4_modifyreg(uint32_t addr, uint32_t clrbits,
 
 static void stm32l4_takesem(FAR sem_t *sem)
 {
-  int ret;
-
-  do
-    {
-      /* Take the semaphore (perhaps waiting) */
-
-      ret = nxsem_wait(sem);
-
-      /* The only case that an error should occur here is if the wait was
-       * awakened by a signal.
-       */
-
-      DEBUGASSERT(ret == OK || ret == -EINTR);
-    }
-  while (ret == -EINTR);
+  nxsem_wait_uninterruptible(sem);
 }
 
 /****************************************************************************
@@ -1116,13 +1101,7 @@ static int stm32l4_chan_wait(FAR struct stm32l4_usbhost_s *priv,
        * wait here.
        */
 
-      ret = nxsem_wait(&chan->waitsem);
-
-      /* nxsem_wait should succeed.  But it is possible that we could be
-       * awakened by a signal too.
-       */
-
-      DEBUGASSERT(ret == OK || ret == -EINTR);
+      nxsem_wait_uninterruptible(&chan->waitsem);
     }
   while (chan->waiter);
 
@@ -1972,7 +1951,7 @@ static ssize_t stm32l4_in_transfer(FAR struct stm32l4_usbhost_s *priv,
                   /* Wait for the next polling interval.  For interrupt and
                    * isochronous endpoints, this is necessaryto assure the
                    * polling interval.  It is used in other cases only to
-                   * prevent the polling from consuming too much CPU bandwith.
+                   * prevent the polling from consuming too much CPU bandwidth.
                    *
                    * Small delays could require more resolution than is provided
                    * by the system timer.  For example, if the system timer
@@ -3262,7 +3241,7 @@ static inline void stm32l4_gint_ptxfeisr(FAR struct stm32l4_usbhost_s *priv)
   chan->xfrd    += chan->inflight;
   chan->inflight = 0;
 
-  /* If we have now transfered the entire buffer, then this transfer is
+  /* If we have now transferred the entire buffer, then this transfer is
    * complete (this case really should never happen because we disable
    * the PTXFE interrupt on the final packet).
    */
@@ -3798,7 +3777,7 @@ static void stm32l4_txfe_enable(FAR struct stm32l4_usbhost_s *priv, int chidx)
   uint32_t regval;
 
   /* Disable all interrupts so that we have exclusive access to the GINTMSK
-   * (it would be sufficent just to disable the GINT interrupt).
+   * (it would be sufficient just to disable the GINT interrupt).
    */
 
   flags = enter_critical_section();
@@ -4256,6 +4235,7 @@ static int stm32l4_epfree(FAR struct usbhost_driver_s *drvr, usbhost_ep_t ep)
  *   - Never called from an interrupt handler.
  *
  ****************************************************************************/
+
 #warning this function name is too generic
 static int stm32l4_alloc(FAR struct usbhost_driver_s *drvr,
                          FAR uint8_t **buffer, FAR size_t *maxlen)
@@ -4301,6 +4281,7 @@ static int stm32l4_alloc(FAR struct usbhost_driver_s *drvr,
  *   - Never called from an interrupt handler.
  *
  ****************************************************************************/
+
 #warning this function name is too generic
 static int stm32l4_free(FAR struct usbhost_driver_s *drvr, FAR uint8_t *buffer)
 {
@@ -4337,6 +4318,7 @@ static int stm32l4_free(FAR struct usbhost_driver_s *drvr, FAR uint8_t *buffer)
  *   This function will *not* be called from an interrupt handler.
  *
  ************************************************************************************/
+
 #warning this function name is too generic
 static int stm32l4_ioalloc(FAR struct usbhost_driver_s *drvr,
                            FAR uint8_t **buffer, size_t buflen)
@@ -4381,6 +4363,7 @@ static int stm32l4_ioalloc(FAR struct usbhost_driver_s *drvr,
  *   This function will *not* be called from an interrupt handler.
  *
  ************************************************************************************/
+
 #warning this function name is too generic
 static int stm32l4_iofree(FAR struct usbhost_driver_s *drvr, FAR uint8_t *buffer)
 {
@@ -4905,6 +4888,7 @@ static void stm32l4_disconnect(FAR struct usbhost_driver_s *drvr,
 /****************************************************************************
  * Initialization
  ****************************************************************************/
+
 /****************************************************************************
  * Name: stm32l4_portreset
  *
@@ -5072,7 +5056,7 @@ static void stm32l4_vbusdrive(FAR struct stm32l4_usbhost_s *priv, bool state)
  * Description:
  *   Initialize/re-initialize hardware for host mode operation.  At present,
  *   this function is called only from stm32l4_hw_initialize().  But if OTG mode
- *   were supported, this function would also be called to swtich between
+ *   were supported, this function would also be called to switch between
  *   host and device modes on a connector ID change interrupt.
  *
  * Input Parameters:
@@ -5132,7 +5116,7 @@ static void stm32l4_host_initialize(FAR struct stm32l4_usbhost_s *priv)
             (CONFIG_STM32L4_OTGFS_PTXFIFO_SIZE << OTGFS_HPTXFSIZ_PTXFD_SHIFT));
   stm32l4_putreg(STM32L4_OTGFS_HPTXFSIZ, regval);
 
-  /* If OTG were supported, we sould need to clear HNP enable bit in the
+  /* If OTG were supported, we should need to clear HNP enable bit in the
    * USB_OTG control register about here.
    */
 

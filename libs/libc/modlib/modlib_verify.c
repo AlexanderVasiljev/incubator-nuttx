@@ -77,7 +77,7 @@ static const char g_modmagic[EI_MAGIC_SIZE] =
  *
  ****************************************************************************/
 
-int modlib_verifyheader(FAR const Elf32_Ehdr *ehdr)
+int modlib_verifyheader(FAR const Elf_Ehdr *ehdr)
 {
   if (!ehdr)
     {
@@ -90,7 +90,8 @@ int modlib_verifyheader(FAR const Elf32_Ehdr *ehdr)
   if (memcmp(ehdr->e_ident, g_modmagic, EI_MAGIC_SIZE) != 0)
     {
       binfo("Not ELF magic {%02x, %02x, %02x, %02x}\n",
-            ehdr->e_ident[0], ehdr->e_ident[1], ehdr->e_ident[2], ehdr->e_ident[3]);
+            ehdr->e_ident[0], ehdr->e_ident[1], ehdr->e_ident[2],
+            ehdr->e_ident[3]);
       return -ENOEXEC;
     }
 

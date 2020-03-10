@@ -115,7 +115,7 @@ static inline void xtensa_attach_fromcpu0_interrupt(void)
 
   /* Attach the inter-CPU interrupt. */
 
-  (void)irq_attach(ESP32_IRQ_CPU_CPU0, (xcpt_t)esp32_fromcpu0_interrupt, NULL);
+  irq_attach(ESP32_IRQ_CPU_CPU0, (xcpt_t)esp32_fromcpu0_interrupt, NULL);
 
   /* Enable the inter 0 CPU interrupts. */
 
@@ -202,9 +202,9 @@ void xtensa_appcpu_start(void)
 
   /* Initialize CPU interrupts */
 
-  (void)esp32_cpuint_initialize();
+  esp32_cpuint_initialize();
 
-  /* Attach and emable internal interrupts */
+  /* Attach and enable internal interrupts */
 
 #ifdef CONFIG_SMP
   /* Attach and enable the inter-CPU interrupt */
@@ -249,7 +249,7 @@ void xtensa_appcpu_start(void)
  *
  *   Each CPU is provided the entry point to is IDLE task when started.  A
  *   TCB for each CPU's IDLE task has been initialized and placed in the
- *   CPU's g_assignedtasks[cpu] list.  Not stack has been alloced or
+ *   CPU's g_assignedtasks[cpu] list.  Not stack has been allocated or
  *   initialized.
  *
  *   The OS initialization logic calls this function repeatedly until each

@@ -43,7 +43,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <unistd.h>
-#include <semaphore.h>
 #include <string.h>
 #include <errno.h>
 #include <debug.h>
@@ -433,7 +432,7 @@ static int tms570_interrupt(int irq, void *context, FAR void *arg)
   for (; ; )
     {
       /* Get the next pending interrupt.  For most interrupts, reading the
-       * INVECT0 register clears the corresonding INTFLAG.
+       * INVECT0 register clears the corresponding INTFLAG.
        */
 
       intvec = tms570_serialin(priv, TMS570_SCI_INTVECT0_OFFSET) & SCI_INTVECT_MASK;
@@ -870,14 +869,14 @@ void up_serialinit(void)
 
   /* Register the console */
 
-  (void)uart_register("/dev/console", &CONSOLE_DEV);
+  uart_register("/dev/console", &CONSOLE_DEV);
 #endif
 
   /* Register all SCIs */
 
-  (void)uart_register("/dev/ttyS0", &TTYS0_DEV);
+  uart_register("/dev/ttyS0", &TTYS0_DEV);
 #ifdef TTYS1_DEV
-  (void)uart_register("/dev/ttyS1", &TTYS1_DEV);
+  uart_register("/dev/ttyS1", &TTYS1_DEV);
 #endif
 }
 

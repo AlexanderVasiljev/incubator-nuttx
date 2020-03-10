@@ -45,7 +45,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <unistd.h>
-#include <semaphore.h>
 #include <string.h>
 #include <errno.h>
 #include <debug.h>
@@ -543,10 +542,7 @@ static void up_detach(FAR struct uart_dev_s *dev)
 static bool up_rxflowcontrol(FAR struct uart_dev_s *dev,
                              unsigned int nbuffered, bool upper)
 {
-  (void)nbuffered;
-
   up_rxint(dev, !upper);
-
   return true;
 }
 #endif /* CONFIG_SERIAL_IFLOWCONTROL */
@@ -884,7 +880,7 @@ static bool up_txempty(FAR struct uart_dev_s *dev)
 }
 
 /****************************************************************************
- * Public Funtions
+ * Public Functions
  ****************************************************************************/
 
 /****************************************************************************
@@ -924,13 +920,13 @@ void up_earlyserialinit(void)
 void up_serialinit(void)
 {
 #ifdef CONSOLE_DEV
-  (void)uart_register("/dev/console", &CONSOLE_DEV);
+  uart_register("/dev/console", &CONSOLE_DEV);
 #endif
 #ifdef TTYS0_DEV
-  (void)uart_register("/dev/ttyS0", &TTYS0_DEV);
+  uart_register("/dev/ttyS0", &TTYS0_DEV);
 #endif
 #ifdef TTYS2_DEV
-  (void)uart_register("/dev/ttyS2", &TTYS2_DEV);
+  uart_register("/dev/ttyS2", &TTYS2_DEV);
 #endif
 }
 

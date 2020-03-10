@@ -205,7 +205,7 @@ static ssize_t lib_copystring(FAR FILE *stream, FAR char *ptr,
 
       if (isspace(ch) || ch == EOF)
         {
-          /* Remeber what terminated the string */
+          /* Remember what terminated the string */
 
           *terminator = ch;
 
@@ -351,7 +351,7 @@ ssize_t lib_parse_hostfile(FAR FILE *stream, FAR struct hostent *host,
         {
           /* Conversion failed.  Entry is corrupted */
 
-          (void)lib_skipline(stream, &nread);
+          lib_skipline(stream, &nread);
           return -EAGAIN;
         }
 
@@ -372,7 +372,7 @@ ssize_t lib_parse_hostfile(FAR FILE *stream, FAR struct hostent *host,
         {
           /* Conversion failed.  Entry is corrupted */
 
-          (void)lib_skipline(stream, &nread);
+          lib_skipline(stream, &nread);
           return -EAGAIN;
         }
 
@@ -476,7 +476,7 @@ ssize_t lib_parse_hostfile(FAR FILE *stream, FAR struct hostent *host,
    * additional aliases.
    */
 
-  (void)lib_skipline(stream, &nread);
+  lib_skipline(stream, &nread);
   return nread;
 }
 

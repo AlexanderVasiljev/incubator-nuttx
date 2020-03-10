@@ -42,12 +42,12 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
-#include <semaphore.h>
 #include <debug.h>
 #include <errno.h>
 
 #include <nuttx/irq.h>
 #include <nuttx/arch.h>
+#include <nuttx/semaphore.h>
 
 #include "up_arch.h"
 #include "up_internal.h"
@@ -118,7 +118,7 @@ struct sam_pidmap_s
   uint8_t pchan;                  /* DMA channel */
 };
 
-/* This structure descibes one DMA channel */
+/* This structure describes one DMA channel */
 
 struct sam_dmach_s
 {
@@ -139,14 +139,14 @@ struct sam_dmach_s
   struct dma_linklist_s *lltail;  /* DMA link list head */
 };
 
-/* This structure describes the stae of one DMA controller */
+/* This structure describes the state of one DMA controller */
 
 struct sam_dmac_s
 {
   /* These semaphores protect the DMA channel and descriptor tables */
 
   sem_t chsem;                       /* Protects channel table */
-  sem_t dsem;                        /* Protects descriptior table */
+  sem_t dsem;                        /* Protects descriptor table */
   uint32_t base;                     /* DMA register channel base address */
 
   /* This array describes the available link list descriptors */
@@ -486,26 +486,12 @@ static struct sam_dmac_s g_dmac1 =
 
 static void sam_takechsem(struct sam_dmac_s *dmac)
 {
-  int ret;
-
-  do
-    {
-      /* Take the semaphore (perhaps waiting) */
-
-      ret = nxsem_wait(&dmac->chsem);
-
-      /* The only case that an error should occur here is if the wait was
-       * awakened by a signal.
-       */
-
-      DEBUGASSERT(ret == OK || ret == -EINTR);
-    }
-  while (ret == -EINTR);
+  nxsem_wait_uninterruptible(&dmac->chsem);
 }
 
 static inline void sam_givechsem(struct sam_dmac_s *dmac)
 {
-  (void)nxsem_post(&dmac->chsem);
+  nxsem_post(&dmac->chsem);
 }
 
 /****************************************************************************
@@ -518,26 +504,12 @@ static inline void sam_givechsem(struct sam_dmac_s *dmac)
 
 static void sam_takedsem(struct sam_dmac_s *dmac)
 {
-  int ret;
-
-  do
-    {
-      /* Take the semaphore (perhaps waiting) */
-
-      ret = nxsem_wait(&dmac->dsem);
-
-      /* The only case that an error should occur here is if the wait was
-       * awakened by a signal.
-       */
-
-      DEBUGASSERT(ret == OK || ret == -EINTR);
-    }
-  while (ret == -EINTR);
+  nxsem_wait_uninterruptible(&dmac->dsem);
 }
 
 static inline void sam_givedsem(struct sam_dmac_s *dmac)
 {
-  (void)nxsem_post(&dmac->dsem);
+  nxsem_post(&dmac->dsem);
 }
 
 /****************************************************************************
@@ -1444,7 +1416,7 @@ sam_allocdesc(struct sam_dmach_s *dmach, struct dma_linklist_s *prev,
               desc->ctrlb  |= DMAC_CH_CTRLB_BOTHDSCR;
               dmach->lltail = desc;
 
-              /* Assume that we will be doing multple buffer transfers and that
+              /* Assume that we will be doing multiple buffer transfers and that
                * that hardware will be accessing the descriptor via DMA.
                */
 
@@ -1627,7 +1599,7 @@ static inline int sam_single(struct sam_dmach_s *dmach)
    * the interrupt status register.
    */
 
-  (void)sam_getdmac(dmac, SAM_DMAC_EBCISR_OFFSET);
+  sam_getdmac(dmac, SAM_DMAC_EBCISR_OFFSET);
 
   /* Write the starting source address in the SADDR register */
 
@@ -1701,7 +1673,7 @@ static inline int sam_multiple(struct sam_dmach_s *dmach)
    * the status register
    */
 
-  (void)sam_getdmac(dmac, SAM_DMAC_EBCISR_OFFSET);
+  sam_getdmac(dmac, SAM_DMAC_EBCISR_OFFSET);
 
   /* Set up the initial CTRLA register */
 
@@ -1810,7 +1782,7 @@ static int sam_dmac_interrupt(int irq, void *context, FAR void *arg)
   regval = sam_getdmac(dmac, SAM_DMAC_EBCISR_OFFSET) &
            sam_getdmac(dmac, SAM_DMAC_EBCIMR_OFFSET);
 
-  /* Check if the any transfer has completed or any errors have ocurred. */
+  /* Check if the any transfer has completed or any errors have occurred. */
 
   if (regval & DMAC_EBC_ALLCHANINTS)
     {
@@ -1843,7 +1815,7 @@ static int sam_dmac_interrupt(int irq, void *context, FAR void *arg)
                   sam_dmaterminate(dmach, OK);
                 }
 
-              /* Otherwise, this must be a Bufffer Transfer Complete (BTC)
+              /* Otherwise, this must be a Buffer Transfer Complete (BTC)
                * interrupt as part of a multiple buffer transfer.
                */
 
@@ -1918,7 +1890,7 @@ void weak_function up_dma_initialize(void)
 
   /* Attach DMA interrupt vector */
 
-  (void)irq_attach(SAM_IRQ_DMAC0, sam_dmac_interrupt, &g_dmac0);
+  irq_attach(SAM_IRQ_DMAC0, sam_dmac_interrupt, &g_dmac0);
 
   /* Initialize the controller */
 
@@ -1938,7 +1910,7 @@ void weak_function up_dma_initialize(void)
 
   /* Attach DMA interrupt vector */
 
-  (void)irq_attach(SAM_IRQ_DMAC1, sam_dmac_interrupt, &g_dmac1);
+  irq_attach(SAM_IRQ_DMAC1, sam_dmac_interrupt, &g_dmac1);
 
   /* Initialize the controller */
 
@@ -1957,7 +1929,7 @@ void weak_function up_dma_initialize(void)
  *   gives the caller exclusive access to the DMA channel.
  *
  *   The naming convention in all of the DMA interfaces is that one side is
- *   the 'peripheral' and the other is 'memory'.  Howerver, the interface
+ *   the 'peripheral' and the other is 'memory'.  However, the interface
  *   could still be used if, for example, both sides were memory although
  *   the naming would be awkward.
  *
@@ -2015,7 +1987,7 @@ DMA_HANDLE sam_dmachannel(uint8_t dmacno, uint32_t chflags)
            * channel
            */
 
-          (void)sam_getdmac(dmac, SAM_DMAC_EBCISR_OFFSET);
+          sam_getdmac(dmac, SAM_DMAC_EBCISR_OFFSET);
 
           /* Disable the channel by writing one to the write-only channel
            * disable register
@@ -2293,7 +2265,7 @@ int sam_dmastart(DMA_HANDLE handle, dma_callback_t callback, void *arg)
 
   if (dmach->llhead)
     {
-      /* Save the callback info.  This will be invoked whent the DMA commpletes */
+      /* Save the callback info.  This will be invoked whent the DMA completes */
 
       dmach->callback = callback;
       dmach->arg      = arg;

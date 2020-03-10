@@ -43,7 +43,6 @@
 #include <sys/stat.h>
 
 #include <stdio.h>
-#include <semaphore.h>
 #include <string.h>
 #include <errno.h>
 #include <assert.h>
@@ -51,6 +50,7 @@
 
 #include <nuttx/kmalloc.h>
 #include <nuttx/mtd/mtd.h>
+#include <nuttx/semaphore.h>
 
 #include "driver/driver.h"
 
@@ -96,17 +96,7 @@ static FAR char *unique_blkdev(void)
     {
       /* Get the semaphore protecting the path number */
 
-      do
-        {
-          ret = nxsem_wait(&g_devno_sem);
-
-          /* The only case that an error should occur here is if the wait
-           * was awakened by a signal.
-           */
-
-          DEBUGASSERT(ret == OK || ret == -EINTR);
-        }
-      while (ret == -EINTR);
+      nxsem_wait_uninterruptible(&g_devno_sem);
 
       /* Get the next device number and release the semaphore */
 
@@ -155,7 +145,7 @@ static FAR char *unique_blkdev(void)
  *
  *   Errors that may be returned:
  *
- *     ENOMEM - Failed to create a temporay path name.
+ *     ENOMEM - Failed to create a temporary path name.
  *
  *   Plus:
  *
@@ -218,4 +208,3 @@ out_with_blkdev:
   kmm_free(blkdev);
   return ret;
 }
-

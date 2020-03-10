@@ -69,8 +69,13 @@
  * only a referenced is passed to get the state from the TCB.
  */
 
+#ifdef CONFIG_ARCH_RV64GC
+#define up_savestate(regs)    up_copystate(regs, (uint64_t*)CURRENT_REGS)
+#define up_restorestate(regs) (CURRENT_REGS = regs)
+#else
 #define up_savestate(regs)    up_copystate(regs, (uint32_t*)g_current_regs)
 #define up_restorestate(regs) (g_current_regs = regs)
+#endif
 
 /* Determine which (if any) console driver to use.  If a console is enabled
  * and no other console device is specified, then a serial console is
@@ -80,14 +85,8 @@
 #ifndef CONFIG_DEV_CONSOLE
 #  undef  USE_SERIALDRIVER
 #  undef  USE_EARLYSERIALINIT
-#  undef  CONFIG_DEV_LOWCONSOLE
-#  undef  CONFIG_RAMLOG_CONSOLE
 #else
-#  if defined(CONFIG_RAMLOG_CONSOLE)
-#    undef  USE_SERIALDRIVER
-#    undef  USE_EARLYSERIALINIT
-#    undef  CONFIG_DEV_LOWCONSOLE
-#  elif defined(CONFIG_DEV_LOWCONSOLE)
+#  if defined(CONFIG_CONSOLE_SYSLOG)
 #    undef  USE_SERIALDRIVER
 #    undef  USE_EARLYSERIALINIT
 #  else
@@ -113,8 +112,19 @@ extern "C"
 #define EXTERN extern
 #endif
 
+#ifdef CONFIG_ARCH_RV64GC
+#ifdef CONFIG_SMP
+EXTERN volatile uint64_t *g_current_regs[CONFIG_SMP_NCPUS];
+#  define CURRENT_REGS (g_current_regs[up_cpu_index()])
+#else
+EXTERN volatile uint64_t *g_current_regs[1];
+#  define CURRENT_REGS (g_current_regs[0])
+#endif
+EXTERN uintptr_t g_idle_topstack;
+#else
 EXTERN volatile uint32_t *g_current_regs;
 EXTERN uint32_t g_idle_topstack;
+#endif
 
 /* Address of the saved user stack pointer */
 
@@ -160,15 +170,17 @@ void up_allocate_heap(FAR void **heap_start, size_t *heap_size);
 
 /* IRQ initialization *******************************************************/
 
-void up_irqinitialize(void);
+void up_ack_irq(int irq);
+
+#ifdef CONFIG_ARCH_RV64GC
+void up_copystate(uint64_t *dest, uint64_t *src);
+#else
 void up_copystate(uint32_t *dest, uint32_t *src);
+#endif
+
 void up_sigdeliver(void);
 int up_swint(int irq, FAR void *context, FAR void *arg);
 uint32_t up_get_newintctx(void);
-
-/* System timer *************************************************************/
-
-void riscv_timer_initialize(void);
 
 /* Low level serial output **************************************************/
 
@@ -178,20 +190,14 @@ void up_lowputs(const char *str);
 
 #ifdef USE_SERIALDRIVER
 void up_serialinit(void);
-#else
-#  define up_serialinit()
 #endif
 
 #ifdef USE_EARLYSERIALINIT
 void up_earlyserialinit(void);
-#else
-#  define up_earlyserialinit()
 #endif
 
 #ifdef CONFIG_RPMSG_UART
 void rpmsg_serialinit(void);
-#else
-#  define rpmsg_serialinit()
 #endif
 
 /* The OS start routine    **************************************************/

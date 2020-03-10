@@ -284,7 +284,7 @@ static void load_kernel(const char *name, const char *devname)
 
   tmp = (void *)0x02040000;
 
-  (void)blk_read(tmp, 512 * 1024, devname, 0);
+  blk_read(tmp, 512 * 1024, devname, 0);
 
   /* disable all IRQ */
 
@@ -332,7 +332,7 @@ static int check_diskformat(void)
       return 0;
     }
 
-  /* If part2 has MBR signature, this eMMC was formated by PC.
+  /* If part2 has MBR signature, this eMMC was formatted by PC.
    * This means the set is just after writing IPL2.
    */
 
@@ -655,11 +655,11 @@ void check_lastkmsg(void)
 
   /* log rotate */
 
-  (void)unlink(LASTMSG_LOGPATH ".4");
-  (void)rename(LASTMSG_LOGPATH ".3", LASTMSG_LOGPATH ".4");
-  (void)rename(LASTMSG_LOGPATH ".2", LASTMSG_LOGPATH ".3");
-  (void)rename(LASTMSG_LOGPATH ".1", LASTMSG_LOGPATH ".2");
-  (void)rename(LASTMSG_LOGPATH ".0", LASTMSG_LOGPATH ".1");
+  unlink(LASTMSG_LOGPATH ".4");
+  rename(LASTMSG_LOGPATH ".3", LASTMSG_LOGPATH ".4");
+  rename(LASTMSG_LOGPATH ".2", LASTMSG_LOGPATH ".3");
+  rename(LASTMSG_LOGPATH ".1", LASTMSG_LOGPATH ".2");
+  rename(LASTMSG_LOGPATH ".0", LASTMSG_LOGPATH ".1");
 
   fp = fopen(LASTMSG_LOGPATH ".0", "w");
 
@@ -760,4 +760,3 @@ int ipl2_main(int argc, char *argv[])
 
   return -1;
 }
-

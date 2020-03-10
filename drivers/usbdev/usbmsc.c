@@ -75,7 +75,6 @@
 #include <nuttx/kmalloc.h>
 #include <nuttx/kthread.h>
 #include <nuttx/arch.h>
-#include <nuttx/semaphore.h>
 #include <nuttx/fs/fs.h>
 #include <nuttx/usb/usb.h>
 #include <nuttx/usb/storage.h>
@@ -919,7 +918,7 @@ static void usbmsc_lununinitialize(struct usbmsc_lun_s *lun)
     {
       /* Close the block driver */
 
-      (void)close_blockdriver(lun->inode);
+      close_blockdriver(lun->inode);
     }
 
   memset(lun, 0, sizeof(struct usbmsc_lun_s));
@@ -1228,7 +1227,7 @@ void usbmsc_rdcomplete(FAR struct usbdev_ep_s *ep,
  *   2. USB_REQ_SETINTERFACE, or
  *   3. USBMSC_REQ_MSRESET
  *
- *   In all cases, the success reponse is a zero-length packet; the failure
+ *   In all cases, the success response is a zero-length packet; the failure
  *   response is an EP0 stall.
  *
  * Input Parameters:
@@ -1292,14 +1291,7 @@ void usbmsc_deferredresponse(FAR struct usbmsc_dev_s *priv, bool failed)
 
 static inline void usbmsc_sync_wait(FAR struct usbmsc_dev_s *priv)
 {
-  int ret;
-
-  do
-    {
-      ret = nxsem_wait(&priv->thsynch);
-      DEBUGASSERT(ret == OK || ret == -EINTR);
-    }
-  while (ret == -EINTR);
+  nxsem_wait_uninterruptible(&priv->thsynch);
 }
 
 /****************************************************************************

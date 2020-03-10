@@ -58,7 +58,7 @@
  *
  * Description:
  *   All LPC17xx/LPC40xx architectures must provide the following entry point.
- *   This entry point is called early in the intitialization -- after all
+ *   This entry point is called early in the initialization -- after all
  *   memory has been configured and mapped but before any devices have been
  *   initialized.
  *
@@ -91,6 +91,6 @@ void board_late_initialize(void)
 {
   /* Perform board-specific initialization */
 
-  (void)mcb1700_bringup();
+  mcb1700_bringup();
 }
 #endif

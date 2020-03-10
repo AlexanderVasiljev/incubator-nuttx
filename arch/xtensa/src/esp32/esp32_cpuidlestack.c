@@ -43,8 +43,7 @@
 /* Address of the CPU0 IDLE thread */
 
 uint32_t g_cpu1_idlestack[CPU1_IDLETHREAD_STACKWORDS]
-  __attribute__((aligned(16) section(".noinit")));
-
+  __attribute__((aligned(16), section(".noinit")));
 
 /****************************************************************************
  * Public Functions
@@ -119,4 +118,3 @@ int up_cpu_idlestack(int cpu, FAR struct tcb_s *tcb, size_t stack_size)
 }
 
 #endif /* CONFIG_SMP */
-

@@ -225,21 +225,7 @@ static const struct i2c_ops_s g_twiops =
 
 static void twi_takesem(sem_t *sem)
 {
-  int ret;
-
-  do
-    {
-      /* Take the semaphore (perhaps waiting) */
-
-      ret = nxsem_wait(sem);
-
-      /* The only case that an error should occur here is if the wait was
-       * awakened by a signal.
-       */
-
-      DEBUGASSERT(ret == OK || ret == -EINTR);
-    }
-  while (ret == -EINTR);
+  nxsem_wait_uninterruptible(sem);
 }
 
 /****************************************************************************
@@ -386,7 +372,7 @@ static int twi_wait(struct twi_dev_s *priv)
 {
   /* Start a timeout to avoid hangs */
 
-  (void)wd_start(priv->timeout, TWI_TIMEOUT, twi_timeout, 1, (uint32_t)priv);
+  wd_start(priv->timeout, TWI_TIMEOUT, twi_timeout, 1, (uint32_t)priv);
 
   /* Wait for either the TWI transfer or the timeout to complete */
 
@@ -775,7 +761,7 @@ static void twi_setfrequency(struct twi_dev_s *priv, uint32_t frequency)
 
       for (ckdiv = 0; ckdiv < 8; ckdiv++)
         {
-          /* Calulate the CLDIV value using the current CKDIV guess */
+          /* Calculate the CLDIV value using the current CKDIV guess */
 
           cldiv = ((priv->clkin / (frequency << 1)) - 4) / (1 << ckdiv);
 
@@ -831,7 +817,7 @@ static void twi_hw_initialize(struct twi_dev_s *priv, unsigned int pid,
   /* Reset the TWI */
 
   twi_putrel(priv, SAM_TWI_CR_OFFSET, TWI_CR_SWRST);
-  (void)twi_getrel(priv, SAM_TWI_RHR_OFFSET);
+  twi_getrel(priv, SAM_TWI_RHR_OFFSET);
 
   /* TWI Slave Mode Disabled, TWI Master Mode Disabled. */
 

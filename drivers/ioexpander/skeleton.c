@@ -39,12 +39,12 @@
 
 #include <nuttx/config.h>
 
-#include <semaphore.h>
 #include <assert.h>
 #include <errno.h>
 #include <debug.h>
 
 #include <nuttx/kmalloc.h>
+#include <nuttx/semaphore.h>
 #include <nuttx/ioexpander/ioexpander.h>
 #include <nuttx/ioexpander/skeleton.h>
 
@@ -168,21 +168,7 @@ static const struct ioexpander_ops_s g_skel_ops =
 
 static void skel_lock(FAR struct skel_dev_s *priv)
 {
-  int ret;
-
-  do
-    {
-      /* Take the semaphore (perhaps waiting) */
-
-      ret = nxsem_wait(&priv->exclsem);
-
-      /* The only case that an error should occur here is if the wait was
-       * awakened by a signal.
-       */
-
-      DEBUGASSERT(ret == OK || ret == -EINTR);
-    }
-  while (ret == -EINTR);
+  nxsem_wait_uninterruptible(&priv->exclsem);
 }
 
 #define skel_unlock(p) nxsem_post(&(p)->exclsem)
@@ -654,7 +640,7 @@ static void skel_irqworker(void *arg)
             {
               /* Yes.. perform the callback */
 
-              (void)priv->cb[i].cbfunc(&priv->dev, match);
+              priv->cb[i].cbfunc(&priv->dev, match);
             }
         }
     }
@@ -727,9 +713,9 @@ static void skel_interrupt(FAR void *arg)
  *   Initialize a I/O Expander device.
  *
  * NOTE: There are no arguments to the initialization function this
- * skelton example.  Typical implementations take two arguments:
+ * skeleton example.  Typical implementations take two arguments:
  *
- * 1) A reference to an I2C or SPI interface used to interace with the
+ * 1) A reference to an I2C or SPI interface used to interactive with the
  *    device, and
  * 2) A read-only configuration structure that provides things like:  I2C
  *    or SPI characteristics and callbacks to attache, enable, and disable

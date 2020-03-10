@@ -554,7 +554,7 @@
   <td><br></td>
   <td>
     <p>
-      <li>ROMFS filesystem support (XIP capabable).</li>
+      <li>ROMFS filesystem support (XIP capable).</li>
     </p>
   </td>
 </tr>
@@ -1544,10 +1544,11 @@
       <li><a href="#80x86">Intel 80x86</a> (2)</li>
     </ul>
   </li>
-  <li>MicroChip
+  <li>Microchip
     <ul>
-      <li><a href="#pic32mxmips">PIC32MX</a> (MIPS 24Kc) (4)</li>
-      <li><a href="#pic32mzmips">PIC32MZ</a> (MIPS M14K) (2)</li>
+      <li><a href="#pic32mxmips">PIC32MX</a> (MIPS M4K) (4)</li>
+      <li><a href="#pic32mzmips">PIC32MZEC</a> (MIPS microAptive) (1)</li>
+      <li><a href="#pic32mzmips">PIC32MZEF</a> (MIPS M5150) (1)</li>
     </ul>
   </li>
   <li>Misoc
@@ -1642,13 +1643,13 @@
       <li><a href="#max3660">MAX32660</a> <small>(ARM Cortex-M3)</small></li>
     </ul>
   </li>
-  <li>MicroChip
+  <li>Microchip
     <ul>
-      <li><a href="#pic32mx2xx">PIC32MX2xx Family</a> <small>(MIPS32 24Kc)</small></li>
-      <li><a href="#pic32mx4xx">PIC32MX4xx Family</a> <small>(MIPS32 24Kc)</small></li>
-      <li><a href="#pic32mx7xx">PIC32MX7xx Family</a> <small>(MIPS32 24Kc)</small></li>
-      <li><a href="#pic32mzec">PIC32MZEC Family</a> <small>(MIPS32 M14K)</small></li>
-      <li><a href="#pic32mzef">PIC32MZEF Family</a> <small>(MIPS32 M14K)</small></li>
+      <li><a href="#pic32mx2xx">PIC32MX2xx Family</a> <small>(MIPS32 M4K)</small></li>
+      <li><a href="#pic32mx4xx">PIC32MX4xx Family</a> <small>(MIPS32 M4K)</small></li>
+      <li><a href="#pic32mx7xx">PIC32MX7xx Family</a> <small>(MIPS32 M4K)</small></li>
+      <li><a href="#pic32mzec">PIC32MZEC Family</a> <small>(MIPS32 microAptiv)</small></li>
+      <li><a href="#pic32mzef">PIC32MZEF Family</a> <small>(MIPS32 M5150)</small></li>
     </ul>
   </li>
   <li>Microchip (Formerly Atmel)
@@ -2142,7 +2143,7 @@
     <p>
       <a name="moxart"><b>MoxaRT</b></a>
       A port to the Moxa NP51x0 series of 2-port advanced RS-232/422/485 serial device servers was contributed by Anton D. Kachalov in NuttX-7.11.
-      This port includes a NuttShell (NSH) configuraion with support for the Faraday FTMAC100 Ethernet MAC Driver.
+      This port includes a NuttShell (NSH) configuration with support for the Faraday FTMAC100 Ethernet MAC Driver.
     </p>
   </td>
 </tr>
@@ -2513,7 +2514,7 @@
           <b>STATUS:</b>
           The basic, minimal port is code complete and introduced in NuttX-7.15, but had not yet been tested at that time due to the inavailability of hardware.
           This basic port was verified in the NuttX-7.16 release, however.
-          The port is still mininal and more device drivers are needed to make the port usable.
+          The port is still minimal and more device drivers are needed to make the port usable.
         </p>
         <p>
           Basic support of NuttX running in SMP mode on the i.MX6Q was also accomplished in NuttX-7.16.
@@ -2559,7 +2560,7 @@
   <td>
     <p>
       <a name="tms570ls31x"><b>TI/Hercules TMS570LS31xx</b>.</a>
-      Archicture support for the TMS570LS3137ZWT part was added in NuttX 7.25 by Ivan Ucherdzhiev.
+      Architecture support for the TMS570LS3137ZWT part was added in NuttX 7.25 by Ivan Ucherdzhiev.
       Ivan also added support for the TI Hercules TMS570LS31x USB Kit.
     </p>
     <ul>
@@ -2917,7 +2918,7 @@ nsh>
   <td>
     <p>
       <a name="tilms6965"><b>TI/Stellaris LM3S6965</b>.</a>
-      This port uses the Stellaris LM3S6965 Ethernet Evalution Kit with a GNU arm-nuttx-elf toolchain*
+      This port uses the Stellaris LM3S6965 Ethernet Evaluation Kit with a GNU arm-nuttx-elf toolchain*
       under either Linux or Cygwin.
     </p>
     <ul>
@@ -2952,7 +2953,7 @@ nsh>
   <td>
     <p>
       <a name="tilms8962"><b>TI/Stellaris LM3S8962</b>.</a>
-      This port uses the Stellaris EKC-LM3S8962 Ethernet+CAN Evalution Kit with a GNU arm-nuttx-elf toolchain*
+      This port uses the Stellaris EKC-LM3S8962 Ethernet+CAN Evaluation Kit with a GNU arm-nuttx-elf toolchain*
       under either Linux or Cygwin.
       Contributed by Larry Arnold.
     </p>
@@ -3846,7 +3847,7 @@ nsh>
             Some initial files for the LPC17xx family were released in NuttX 5.6, but
           </li>
           <li>
-            The first functional release for the NXP LPC1768/Nucleus2G occured with NuttX 5.7 with
+            The first functional release for the NXP LPC1768/Nucleus2G occurred with NuttX 5.7 with
             Some additional enhancements through NuttX-5.9.
             Refer to the NuttX board <a href="https://bitbucket.org/patacongo/obsoleted/src/master/configs/nucleus2g/README.txt" target="_blank">README</a> file for further information.
           </li>
@@ -3865,7 +3866,7 @@ nsh>
       <p><b>Obsoleted</b>.
         Support for the Nucleus2G board was terminated on 2016-04-12.
         There has not been any activity with the commercial board in a few years and it no longer appears to be available from the 2g-eng.com website.
-        Since the board is commercial and no longer publically available, it no longer qualifies for inclusion in the open source repositories.
+        Since the board is commercial and no longer publicly available, it no longer qualifies for inclusion in the open source repositories.
         A snapshot of the code is still available in the <a href="https://bitbucket.org/patacongo/obsoleted/src/master/boards/nucleus2g">Obsoleted repository</a> and can easily be <i>reconstitued</i> if needed.
       </p>
       </li>
@@ -4077,7 +4078,7 @@ nsh>
   <td>
     <p>
       <a name="xmd45xx"><b>Infineon XMC45xx</b>.</a>
-      An initial but still incomplete port to the XMC4500 Relax board was released with NuttX-7.21 (although it wass not really ready for prime time).  Basic NSH functionality was a serial console was added by Alan Carvahlo de Assis in NuttX-7.23.  Alan also added an SPI driver in NuttX-7.25.
+      An initial but still incomplete port to the XMC4500 Relax board was released with NuttX-7.21 (although it was not really ready for prime time).  Basic NSH functionality was a serial console was added by Alan Carvahlo de Assis in NuttX-7.23.  Alan also added an SPI driver in NuttX-7.25.
     </p>
     <p>
       This initial porting effort uses the Infineon XMC4500 Relax v1 board as described on the manufacturer's <a href="http://www.infineon.com/cms/en/product/evaluation-boards/KIT_XMC45_RELAX_V1/productType.html?productType=db3a304437849205013813b23ac17763">website</a>.
@@ -4673,7 +4674,7 @@ nsh>
       Other software that supports the OmnibusF4 family include Betaflight, iNAV, and many others.
       PX4 recently added support as well, also based on NuttX.
       No code from those resources is included in this port.
-      The OmnibusF4 specifcation mandates the InvenSense MPU6000 which is included in NuttX-7.29 along with a driver for the MAX7546 OSD.
+      The OmnibusF4 specification mandates the InvenSense MPU6000 which is included in NuttX-7.29 along with a driver for the MAX7546 OSD.
     </p>
   </td>
 </tr>
@@ -6099,7 +6100,7 @@ Mem:         29232       5920      23312      23312
       <li>
         <p><b>NuttX-7.29</b>.
         XBAR and OCOTP support was added in NuttX-7.28 by David Sidrane.
-        LCD Framebuffer suport was added by Johannes.
+        LCD Framebuffer support was added by Johannes.
         </p>
       </li>
       <li>
@@ -6399,7 +6400,7 @@ Mem:         29232       5920      23312      23312
          However, testing has not yet begun due to issues with BDMs, Code Warrior, and
          the paging in the build process.
          Progress is slow, but I hope to see a fully verified MC9S12NE64 port in the near future.
-         Refer to the NuttX board README files for <a href="https://bitbucket.org/nuttx/nuttx/src/master/boards/hc/mcs92s12ne64/demo9s12ne64/README.txt" target="_blank">DEMO9S12NE64</a> and for the <a href="https://bitbucket.org/nuttx/nuttx/src/master/boards/hc/mcs92s12ne64/ne64badge/README.txt" target="_blank">NE64 /PoE Badge</a> for further information.
+         Refer to the NuttX board README files for <a href="https://bitbucket.org/nuttx/nuttx/src/master/boards/hc/m9s12/demo9s12ne64/README.txt" target="_blank">DEMO9S12NE64</a> and for the <a href="https://bitbucket.org/nuttx/nuttx/src/master/boards/hc/m9s12/ne64badge/README.txt" target="_blank">NE64 /PoE Badge</a> for further information.
       </p>
     </ul>
   </td>
@@ -6416,7 +6417,7 @@ Mem:         29232       5920      23312      23312
     <p>
       <b>QEMU/Bifferboard i486</b>.
       This port uses the <a href="http://wiki.qemu.org/Main_Page">QEMU</a> i486 and the native
-      Linux, Cywgin, MinGW the GCC toolchain under Linux or Cygwin.
+      Linux, Cygwin, MinGW the GCC toolchain under Linux or Cygwin.
     </p>
     <ul>
       <p>
@@ -6434,7 +6435,7 @@ Mem:         29232       5920      23312      23312
 <tr>
   <td valign="top"><img height="20" width="20" src="favicon.ico"></td>
   <td bgcolor="#5eaee1">
-    <a name="pic32mxmips"><b>MicroChip PIC32MX (MIPS 24Kc)</b>.</a>
+    <a name="pic32mxmips"><b>Microchip PIC32MX (MIPS M4K)</b>.</a>
   </td>
 </tr>
 <tr>
@@ -6443,7 +6444,7 @@ Mem:         29232       5920      23312      23312
     <p>
       <a name="pic32mx2xx"><b>PIC32MX250F128D</b>.</a>
       A port is in progress from the DTX1-4000L &quot;Mirtoo&quot; module from <a href="http://www.dimitech.com/" >Dimitech</a>.
-      This module uses MicroChip PIC32MX250F128D and the Dimitech DTX1-4000L EV-kit1 V2.
+      This module uses Microchip PIC32MX250F128D and the Dimitech DTX1-4000L EV-kit1 V2.
       See the <a href="http://www.dimitech.com/">Dimitech</a> website for further information.
     </p>
     <ul>
@@ -6476,7 +6477,7 @@ Mem:         29232       5920      23312      23312
     <p>
       <b>PIC32MX440F512H</b>.
         This port uses the &quot;Advanced USB Storage Demo Board,&quot; Model DB-DP11215, from <a href="http://www.sureelectronics.net">Sure Electronics</a>.
-        This board features the MicroChip PIC32MX440F512H.
+        This board features the Microchip PIC32MX440F512H.
         See the <a href="http://www.sureelectronics.net/goods.php?id=1168">Sure website</a> for further information about the DB-DP11215 board.
         (I believe that that the DB-DP11215 may be obsoleted now but replaced with the very similar, DB-DP11212.
         The DB-DP11212 board differs, I believe, only in its serial port configuration.)
@@ -6511,7 +6512,7 @@ Mem:         29232       5920      23312      23312
     </p>
     <li><b>UBW32 Board from Sparkfun</b>
       This is the port to the Sparkfun UBW32 board.
-      This port uses the <a href="http://www.sparkfun.com/products/8971">original v2.5</a> board which is based on the MicroChip PIC32MX460F512L.
+      This port uses the <a href="http://www.sparkfun.com/products/8971">original v2.5</a> board which is based on the Microchip PIC32MX460F512L.
       This older version has been replaced with this <a href="http://www.sparkfun.com/products/9713">newer board</a>.
       See also the <a href="http://www.schmalzhaus.com/UBW32/">UBW32</a> web site.
     </li>
@@ -6593,7 +6594,7 @@ Mem:         29232       5920      23312      23312
     <ol>
       <li>
         The <i>LITE</i> version of the PIC32MX toolchain available
-        for download from the <a href="http://www.microchip.com">MicroChip</a> website, or
+        for download from the <a href="http://www.microchip.com">Microchip</a> website, or
       </li>
       <li>
         The Pinguino MIPS ELF toolchain available from the Pinguino <a href="http://code.google.com/p/pinguino32/downloads/list">website</a>.
@@ -6607,14 +6608,14 @@ Mem:         29232       5920      23312      23312
 <tr>
   <td valign="top"><img height="20" width="20" src="favicon.ico"></td>
   <td bgcolor="#5eaee1">
-    <a name="pic32mzmips"><b>MicroChip PIC32MZ (MIPS M14K)</b>.</a>
+    <a name="pic32mzmips"><b>Microchip PIC32MZ</b>.</a>
   </td>
 </tr>
 <tr>
   <td><br></td>
   <td>
     <p>
-      <a name="pic32mzec"><b>PIC32MZEC Family</b>.</a>
+      <a name="pic32mzec"><b>PIC32MZEC Family (MIPS microAptiv)</b>.</a>
       A port is in available for the PIC32MZ Embedded Connectivity (EC) Starter Kit.
       There are two configurations of the Microchip PIC32MZ EC Starter Kit:
     </p>
@@ -6630,7 +6631,7 @@ Mem:         29232       5920      23312      23312
       The basic port is functional and a NuttShell (NSH) configuration is available.
     </p>
     <p>
-      <a name="pic32mzef"><b>PIC32MZEF Family</b>.</a>
+      <a name="pic32mzef"><b>PIC32MZEF Family (MIPS M5150)</b>.</a>
       A port is in available for the MikroElectronika <a href="https://www.mikroe.com/flipclick-pic32mz">Flip&amp;Click PIC32MZ</a> development board based on the PIC32MZ2048EFH100 MCU.
       This board configuration was added in NuttX-7.24 and is, for the most part, compatible with the PIC32MZEC family.
     </p>
@@ -6708,7 +6709,7 @@ Mem:         29232       5920      23312      23312
         (which has very limit SH-1 support to begin with), or perhaps with the CMON debugger.
         At any rate, I have exhausted all of the energy that I am willing to put into this cool
         old processor for the time being.
-        Refer to the NuttX board <a href="https://bitbucket.org/nuttx/nuttx/src/master/boards/renesas/sh7032/us7032evb1/README.txt" target="_blank">README</a> file for further information.
+        Refer to the NuttX board <a href="https://bitbucket.org/nuttx/nuttx/src/master/boards/renesas/sh1/us7032evb1/README.txt" target="_blank">README</a> file for further information.
       </p>
     </ul>
   </td>
@@ -6745,7 +6746,7 @@ BFD_ASSERT (*plt_offset != (bfd_vma) -1);
 </pre></ul>
       <p>
         No workaround is known at this time.  This is a show stopper for M16C.
-        Refer to the NuttX board <a href="https://bitbucket.org/nuttx/nuttx/src/master/boards/renesas/m32262f8/skp16c26/README.txt" target="_blank">README</a> file for further information.
+        Refer to the NuttX board <a href="https://bitbucket.org/nuttx/nuttx/src/master/boards/renesas/m16c/skp16c26/README.txt" target="_blank">README</a> file for further information.
       </p>
     </ul>
   </td>
@@ -6858,7 +6859,7 @@ BFD_ASSERT (*plt_offset != (bfd_vma) -1);
         The initial release of support for the z16f was made available in NuttX version 0.3.7.
         A working NuttShell (NSH) configuration as added in NuttX-6.33 (although a patch is required to work around an issue with a ZDS-II 5.0.1 tool problem).
         An ESPI driver was added in NuttX-7.2.
-        Refer to the NuttX board <a href="https://bitbucket.org/nuttx/nuttx/src/master/boards/z16/z16f2811/z16f2800100zcog/README.txt" target="_blank">README</a> file for further information.
+        Refer to the NuttX board <a href="https://bitbucket.org/nuttx/nuttx/src/master/boards/z16/z16f/z16f2800100zcog/README.txt" target="_blank">README</a> file for further information.
       </p>
     </li>
   </ul>
@@ -7228,7 +7229,7 @@ avr, m68k, m68hc11, m68hc12, m9s12, blackfin, m32c, h8, and SuperH ports.</block
       </li>
       <li>
         <b>MinGW-GCC</b>.
-        MinGW-GCC is used to compiler the C tools in the <code>nuttx/tools</code> directory that are neede by the build.
+        MinGW-GCC is used to compiler the C tools in the <code>nuttx/tools</code> directory that are needed by the build.
         MinGW-GCC can be downloaded from http://www.mingw.org/.
         If you are using GNUWin32, then it is recommended that you not install the optional MSYS components as there may be conflicts.
       </li>
@@ -7303,7 +7304,7 @@ if [ -x "$WINELOADER" ]; then exec "$WINELOADER" "$appname" "$@"; fi
     </p>
     <p>
       MSYS, however, cannot be used with the native Windows NuttX build because it will invoke the MSYS bash shell instead of the <code>CMD.exe</code> shell.
-      Use GNUWin32 in the native Windows build envionment.
+      Use GNUWin32 in the native Windows build environment.
     </p>
   </td>
 </tr>

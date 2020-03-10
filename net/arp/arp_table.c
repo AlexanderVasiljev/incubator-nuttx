@@ -261,7 +261,7 @@ void arp_hdr_update(FAR uint16_t *pipaddr, FAR uint8_t *ethaddr)
 
   /* Update the ARP table */
 
-  (void)arp_update(ipaddr, ethaddr);
+  arp_update(ipaddr, ethaddr);
 }
 
 /****************************************************************************
@@ -445,4 +445,3 @@ unsigned int arp_snapshot(FAR struct arp_entry_s *snapshot,
 
 #endif /* CONFIG_NET_ARP */
 #endif /* CONFIG_NET */
-

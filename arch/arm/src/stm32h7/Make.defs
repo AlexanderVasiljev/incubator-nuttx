@@ -141,6 +141,10 @@ ifeq ($(CONFIG_STM32H7_DMA),y)
 CHIP_CSRCS += stm32_dma.c
 endif
 
+ifeq ($(CONFIG_STM32H7_FMC),y)
+CHIP_CSRCS += stm32_fmc.c
+endif
+
 ifeq ($(filter y,$(CONFIG_STM32H7_IWDG) $(CONFIG_STM32H7_RTC_LSICLOCK)),y)
 CHIP_CSRCS += stm32_lsi.c
 endif
@@ -155,6 +159,11 @@ endif
 
 ifeq ($(CONFIG_STM32H7_PWR),y)
 CHIP_CSRCS += stm32_pwr.c
+endif
+
+
+ifeq ($(CONFIG_STM32H7_QUADSPI),y)
+CHIP_CSRCS += stm32_qspi.c
 endif
 
 ifeq ($(CONFIG_STM32H7_RTC),y)
@@ -200,4 +209,19 @@ endif
 
 ifeq ($(CONFIG_SENSORS_QENCODER),y)
 CHIP_CSRCS += stm32_qencoder.c
+endif
+
+ifeq ($(CONFIG_PM),y)
+CHIP_CSRCS += stm32_pmsleep.c stm32_pmstandby.c stm32_pmstop.c
+ifneq ($(CONFIG_ARCH_CUSTOM_PMINIT),y)
+CHIP_CSRCS += stm32_pminitialize.c
+endif
+endif
+
+ifeq ($(CONFIG_STM32H7_IWDG),y)
+CHIP_CSRCS += stm32_iwdg.c
+endif
+
+ifeq ($(CONFIG_STM32H7_WWDG),y)
+CHIP_CSRCS += stm32_wwdg.c
 endif

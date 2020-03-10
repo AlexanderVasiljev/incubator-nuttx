@@ -219,7 +219,7 @@
 #define DM9X_IMRRXDISABLE  (DM9X_INT_PT | DM9X_INT_LNKCHG | DM9X_IMR_PAR)
 #define DM9X_IMRDISABLE    (DM9X_IMR_PAR)
 
-/* EEPROM/PHY control regiser bits */
+/* EEPROM/PHY control register bits */
 
 #define DM9X_EEPHYC_ERRE   (1 << 0) /* EEPROM (vs PHY) access status */
 #define DM9X_EEPHYC_ERPRW  (1 << 1) /* EEPROM/PHY write access */
@@ -259,7 +259,7 @@
 
 #define DM9X_CRXTHRES 10
 
-/* All access is via an index register and a data regist.  Select accecss
+/* All access is via an index register and a data register.  Select accecss
  * according to user supplied base address and bus width.
  */
 
@@ -766,8 +766,8 @@ static int dm9x_transmit(FAR struct dm9x_driver_s *priv)
 
       /* Setup the TX timeout watchdog (perhaps restarting the timer) */
 
-      (void)wd_start(priv->dm_txtimeout, DM6X_TXTIMEOUT,
-                     dm9x_txtimeout_expiry, 1, (wdparm_t)priv);
+      wd_start(priv->dm_txtimeout, DM6X_TXTIMEOUT,
+               dm9x_txtimeout_expiry, 1, (wdparm_t)priv);
       return OK;
     }
 
@@ -883,8 +883,8 @@ static void dm9x_receive(FAR struct dm9x_driver_s *priv)
     {
       /* Store the value of memory data read address register */
 
-      (void)getreg(DM9X_MDRAH);
-      (void)getreg(DM9X_MDRAL);
+      getreg(DM9X_MDRAH);
+      getreg(DM9X_MDRAL);
 
       getreg(DM9X_MRCMDX);         /* Dummy read */
       rxbyte = (uint8_t)DM9X_DATA; /* Get the most up-to-date data */
@@ -992,7 +992,7 @@ static void dm9x_receive(FAR struct dm9x_driver_s *priv)
 #ifdef CONFIG_NET_IPv6
           if (BUF->type == HTONS(ETHTYPE_IP6))
             {
-              ninfo("Iv6 frame\n");
+              ninfo("IPv6 frame\n");
               NETDEV_RXIPV6(&priv->dm_dev);
 
               /* Give the IPv6 packet to the network layer */
@@ -1118,7 +1118,7 @@ static void dm9x_txdone(FAR struct dm9x_driver_s *priv)
 
   /* Then poll the network for new XMIT data */
 
-  (void)devif_poll(&priv->dm_dev, dm9x_txpoll);
+  devif_poll(&priv->dm_dev, dm9x_txpoll);
 }
 
 /****************************************************************************
@@ -1221,7 +1221,7 @@ static void dm9x_interrupt_work(FAR void *arg)
 
   if (priv->ncrxpackets >= DM9X_CRXTHRES)
     {
-      /* Eanble all DM90x0 interrupts EXCEPT for RX */
+      /* Enable all DM90x0 interrupts EXCEPT for RX */
 
       putreg(DM9X_IMR, DM9X_IMRRXDISABLE);
     }
@@ -1334,7 +1334,7 @@ static void dm9x_txtimeout_work(FAR void *arg)
 
   /* Then poll the network for new XMIT data */
 
-  (void)devif_poll(&priv->dm_dev, dm9x_txpoll);
+  devif_poll(&priv->dm_dev, dm9x_txpoll);
   net_unlock();
 }
 
@@ -1416,13 +1416,13 @@ static void dm9x_poll_work(FAR void *arg)
     {
       /* If so, update TCP timing states and poll the network for new XMIT data */
 
-      (void)devif_timer(&priv->dm_dev, dm9x_txpoll);
+      devif_timer(&priv->dm_dev, DM9X_WDDELAY, dm9x_txpoll);
     }
 
   /* Setup the watchdog poll timer again */
 
-  (void)wd_start(priv->dm_txpoll, DM9X_WDDELAY, dm9x_poll_expiry, 1,
-                 (wdparm_t)priv);
+  wd_start(priv->dm_txpoll, DM9X_WDDELAY, dm9x_poll_expiry, 1,
+           (wdparm_t)priv);
   net_unlock();
 }
 
@@ -1524,7 +1524,7 @@ static int dm9x_ifup(FAR struct net_driver_s *dev)
         dev->d_ipaddr & 0xff, (dev->d_ipaddr >> 8) & 0xff,
         (dev->d_ipaddr >> 16) & 0xff, dev->d_ipaddr >> 24);
 
-  /* Initilize DM90x0 chip */
+  /* Initialize DM90x0 chip */
 
   dm9x_bringup(priv);
 
@@ -1556,8 +1556,8 @@ static int dm9x_ifup(FAR struct net_driver_s *dev)
 
   /* Set and activate a timer process */
 
-  (void)wd_start(priv->dm_txpoll, DM9X_WDDELAY, dm9x_poll_expiry, 1,
-                 (wdparm_t)priv);
+  wd_start(priv->dm_txpoll, DM9X_WDDELAY, dm9x_poll_expiry, 1,
+           (wdparm_t)priv);
 
   /* Enable the DM9X interrupt */
 
@@ -1649,7 +1649,7 @@ static void dm9x_txavail_work(FAR void *arg)
         {
           /* If so, then poll the network for new XMIT data */
 
-          (void)devif_poll(&priv->dm_dev, dm9x_txpoll);
+          devif_poll(&priv->dm_dev, dm9x_txpoll);
         }
     }
 
@@ -1992,9 +1992,8 @@ int dm9x_initialize(void)
 
   /* Register the device with the OS so that socket IOCTLs can be performed */
 
-  (void)netdev_register(&g_dm9x[0].dm_dev, NET_LL_ETHERNET);
+  netdev_register(&g_dm9x[0].dm_dev, NET_LL_ETHERNET);
   return OK;
 }
 
 #endif /* CONFIG_NET && CONFIG_NET_DM90x0 */
-

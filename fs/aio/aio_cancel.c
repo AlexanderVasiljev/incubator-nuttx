@@ -124,8 +124,9 @@ int aio_cancel(int fildes, FAR struct aiocb *aiocbp)
                aioc && aioc->aioc_aiocbp != aiocbp;
                aioc = (FAR struct aio_container_s *)aioc->aioc_link.flink);
 
-          /* Did we find a container for this fildes?  We should; the aio_result says
-           * that the transfer is pending.  If not we return AIO_ALLDONE.
+          /* Did we find a container for this fildes?  We should; the
+           * aio_result says that the transfer is pending.  If not we return
+           * AIO_ALLDONE.
            */
 
           if (aioc)
@@ -144,14 +145,14 @@ int aio_cancel(int fildes, FAR struct aiocb *aiocbp)
                   /* Remove the container from the list of pending transfers */
 
                   pid = aioc->aioc_pid;
-                  (void)aioc_decant(aioc);
+                  aioc_decant(aioc);
 
                   aiocbp->aio_result = -ECANCELED;
                   ret = AIO_CANCELED;
 
                   /* Signal the client */
 
-                  (void)aio_signal(pid, aiocbp);
+                  aio_signal(pid, aiocbp);
                 }
               else
                 {
@@ -198,7 +199,8 @@ int aio_cancel(int fildes, FAR struct aiocb *aiocbp)
                 {
                   /* Remove the container from the list of pending transfers */
 
-                  next   = (FAR struct aio_container_s *)aioc->aioc_link.flink;
+                  next   =
+                    (FAR struct aio_container_s *)aioc->aioc_link.flink;
                   pid    = aioc->aioc_pid;
                   aiocbp = aioc_decant(aioc);
                   DEBUGASSERT(aiocbp);
@@ -211,7 +213,7 @@ int aio_cancel(int fildes, FAR struct aiocb *aiocbp)
 
                   /* Signal the client */
 
-                  (void)aio_signal(pid, aiocbp);
+                  aio_signal(pid, aiocbp);
                 }
               else
                 {

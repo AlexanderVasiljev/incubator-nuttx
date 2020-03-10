@@ -1,7 +1,7 @@
 /****************************************************************************
  * include/nuttx/net/net.h
  *
- *   Copyright (C) 2007, 2009-2014, 2016-2018 Gregory Nutt. All rights
+ *   Copyright (C) 2007, 2009-2014, 2016-2019 Gregory Nutt. All rights
  *     reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
@@ -108,6 +108,32 @@
 
 #define SOCKCAP_NONBLOCKING (1 << 0)  /* Bit 0: Socket supports non-blocking
                                        *        operation. */
+
+/* Definitions of 8-bit socket flags */
+
+#define _SF_CLOEXEC         0x04  /* Bit 2: Close on execute */
+#define _SF_NONBLOCK        0x08  /* Bit 3: Don't block if no data (TCP/READ only) */
+#define _SF_LISTENING       0x10  /* Bit 4: SOCK_STREAM is listening */
+#define _SF_BOUND           0x20  /* Bit 5: SOCK_STREAM is bound to an address */
+                                  /* Bits 6-7: Connection state */
+#define _SF_CONNECTED       0x40  /* Bit 6: SOCK_STREAM/SOCK_DGRAM is connected */
+#define _SF_CLOSED          0x80  /* Bit 7: SOCK_STREAM was gracefully disconnected */
+
+/* Connection state encoding:
+ *
+ *  _SF_CONNECTED==1 && _SF_CLOSED==0 - the socket is connected
+ *  _SF_CONNECTED==0 && _SF_CLOSED==1 - the socket was gracefully disconnected
+ *  _SF_CONNECTED==0 && _SF_CLOSED==0 - the socket was rudely disconnected
+ */
+
+/* Macro to manage the socket state and flags */
+
+#define _SS_ISCLOEXEC(s)    (((s) & _SF_CLOEXEC)   != 0)
+#define _SS_ISNONBLOCK(s)   (((s) & _SF_NONBLOCK)  != 0)
+#define _SS_ISLISTENING(s)  (((s) & _SF_LISTENING) != 0)
+#define _SS_ISBOUND(s)      (((s) & _SF_BOUND)     != 0)
+#define _SS_ISCONNECTED(s)  (((s) & _SF_CONNECTED) != 0)
+#define _SS_ISCLOSED(s)     (((s) & _SF_CLOSED)    != 0)
 
 /****************************************************************************
  * Public Types
@@ -234,6 +260,7 @@ struct socket
   /* Socket options */
 
 #ifdef CONFIG_NET_SOCKOPTS
+  int16_t       s_error;     /* Last error that occurred on this socket */
   sockopt_t     s_options;   /* Selected socket options */
   socktimeo_t   s_rcvtimeo;  /* Receive timeout value (in deciseconds) */
   socktimeo_t   s_sndtimeo;  /* Send timeout value (in deciseconds) */
@@ -369,7 +396,7 @@ void net_unlock(void);
  *
  * Input Parameters:
  *   sem     - A reference to the semaphore to be taken.
- *   abstime - The absolute time to wait until a timeout is declared.
+ *   timeout - The relative time to wait until a timeout is declared.
  *
  * Returned Value:
  *   Zero (OK) is returned on success; a negated errno value is returned on
@@ -377,8 +404,7 @@ void net_unlock(void);
  *
  ****************************************************************************/
 
-struct timespec;
-int net_timedwait(sem_t *sem, FAR const struct timespec *abstime);
+int net_timedwait(sem_t *sem, unsigned int timeout);
 
 /****************************************************************************
  * Name: net_lockedwait
@@ -401,6 +427,43 @@ int net_timedwait(sem_t *sem, FAR const struct timespec *abstime);
  ****************************************************************************/
 
 int net_lockedwait(sem_t *sem);
+
+/****************************************************************************
+ * Name: net_timedwait_uninterruptible
+ *
+ * Description:
+ *   This function is wrapped version of net_timedwait(), which is
+ *   uninterruptible and convenient for use.
+ *
+ * Input Parameters:
+ *   sem     - A reference to the semaphore to be taken.
+ *   timeout - The relative time to wait until a timeout is declared.
+ *
+ * Returned Value:
+ *   Zero (OK) is returned on success; a negated errno value is returned on
+ *   any failure.
+ *
+ ****************************************************************************/
+
+int net_timedwait_uninterruptible(sem_t *sem, unsigned int timeout);
+
+/****************************************************************************
+ * Name: net_lockedwait_uninterruptible
+ *
+ * Description:
+ *   This function is wrapped version of net_lockedwait(), which is
+ *   uninterruptible and convenient for use.
+ *
+ * Input Parameters:
+ *   sem - A reference to the semaphore to be taken.
+ *
+ * Returned Value:
+ *   Zero (OK) is returned on success; a negated errno value is returned on
+ *   any failure.
+ *
+ ****************************************************************************/
+
+int net_lockedwait_uninterruptible(sem_t *sem);
 
 /****************************************************************************
  * Name: net_ioballoc
@@ -426,18 +489,6 @@ int net_lockedwait(sem_t *sem);
 #ifdef CONFIG_MM_IOB
 FAR struct iob_s *net_ioballoc(bool throttled, enum iob_user_e consumerid);
 #endif
-
-/****************************************************************************
- * Name: net_setipid
- *
- * Description:
- *   This function may be used at boot time to set the initial ip_id.
- *
- * Assumptions:
- *
- ****************************************************************************/
-
-void net_setipid(uint16_t id);
 
 /****************************************************************************
  * Name: net_checksd
@@ -493,7 +544,7 @@ void net_releaselist(FAR struct socketlist *list);
  *   Given a socket descriptor, return the underlying socket structure.
  *
  * Input Parameters:
- *   sockfd - The socket descriptor index o use.
+ *   sockfd - The socket descriptor index to use.
  *
  * Returned Value:
  *   On success, a reference to the socket structure associated with the
@@ -1283,10 +1334,10 @@ struct pollfd; /* Forward reference -- see poll.h */
 int net_poll(int sockfd, struct pollfd *fds, bool setup);
 
 /****************************************************************************
- * Name: psock_dupsd
+ * Name: psock_dup
  *
  * Description:
- *   Clone a socket descriptor to an arbitray descriptor number.  If file
+ *   Clone a socket descriptor to an arbitrary descriptor number.  If file
  *   descriptors are implemented, then this is called by dup() for the case
  *   of socket file descriptors.  If file descriptors are not implemented,
  *   then this function IS dup().
@@ -1297,13 +1348,13 @@ int net_poll(int sockfd, struct pollfd *fds, bool setup);
  *
  ****************************************************************************/
 
-int psock_dupsd(FAR struct socket *psock, int minsd);
+int psock_dup(FAR struct socket *psock, int minsd);
 
 /****************************************************************************
- * Name: net_dupsd
+ * Name: net_dup
  *
  * Description:
- *   Clone a socket descriptor to an arbitray descriptor number.  If file
+ *   Clone a socket descriptor to an arbitrary descriptor number.  If file
  *   descriptors are implemented, then this is called by dup() for the case
  *   of socket file descriptors.  If file descriptors are not implemented,
  *   then this function IS dup().
@@ -1314,13 +1365,23 @@ int psock_dupsd(FAR struct socket *psock, int minsd);
  *
  ****************************************************************************/
 
-int net_dupsd(int sockfd, int minsd);
+int net_dup(int sockfd, int minsd);
 
 /****************************************************************************
- * Name: net_dupsd2
+ * Name: psock_dup2
  *
  * Description:
- *   Clone a socket descriptor to an arbitray descriptor number.  If file
+ *   Performs the low level, common portion of net_dup() and net_dup2()
+ *
+ ****************************************************************************/
+
+int psock_dup2(FAR struct socket *psock1, FAR struct socket *psock2);
+
+/****************************************************************************
+ * Name: net_dup2
+ *
+ * Description:
+ *   Clone a socket descriptor to an arbitrary descriptor number.  If file
  *   descriptors are implemented, then this is called by dup2() for the case
  *   of socket file descriptors.  If file descriptors are not implemented,
  *   then this function IS dup2().
@@ -1331,7 +1392,7 @@ int net_dupsd(int sockfd, int minsd);
  *
  ****************************************************************************/
 
-int net_dupsd2(int sockfd1, int sockfd2);
+int net_dup2(int sockfd1, int sockfd2);
 
 /****************************************************************************
  * Name: net_fstat
@@ -1341,7 +1402,7 @@ int net_dupsd2(int sockfd1, int sockfd2);
  *
  * Input Parameters:
  *   sockfd - Socket descriptor of the socket to operate on
- *   bug    - Caller-provided location in which to return the fstat data
+ *   buf    - Caller-provided location in which to return the fstat data
  *
  * Returned Value:
  *   Zero (OK) is returned on success; a negated errno value is returned on
@@ -1352,16 +1413,6 @@ int net_dupsd2(int sockfd1, int sockfd2);
 struct stat;  /* Forward reference.  See sys/stat.h */
 
 int net_fstat(int sockfd, FAR struct stat *buf);
-
-/****************************************************************************
- * Name: net_clone
- *
- * Description:
- *   Performs the low level, common portion of net_dupsd() and net_dupsd2()
- *
- ****************************************************************************/
-
-int net_clone(FAR struct socket *psock1, FAR struct socket *psock2);
 
 /****************************************************************************
  * Name: net_sendfile
@@ -1544,4 +1595,3 @@ int netdev_unregister(FAR struct net_driver_s *dev);
 
 #endif /* CONFIG_NET */
 #endif /* __INCLUDE_NUTTX_NET_NET_H */
-

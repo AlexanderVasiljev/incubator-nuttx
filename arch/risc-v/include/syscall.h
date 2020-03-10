@@ -52,6 +52,10 @@
 # include <arch/rv32im/syscall.h>
 #endif
 
+#ifdef CONFIG_ARCH_RV64GC
+# include <arch/rv64gc/syscall.h>
+#endif
+
 /****************************************************************************
  * Pre-processor Definitions
  ****************************************************************************/
@@ -88,4 +92,3 @@ extern "C"
 #endif
 
 #endif /* __ARCH_RISCV_INCLUDE_SYSCALL_H */
-

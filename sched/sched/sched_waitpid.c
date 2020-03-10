@@ -41,7 +41,6 @@
 #include <nuttx/config.h>
 
 #include <sys/wait.h>
-#include <semaphore.h>
 #include <signal.h>
 #include <errno.h>
 
@@ -191,7 +190,7 @@ pid_t waitpid(pid_t pid, int *stat_loc, int options)
 
   /* waitpid() is a cancellation point */
 
-  (void)enter_cancellation_point();
+  enter_cancellation_point();
 
   /* Disable pre-emption so that nothing changes in the following tests */
 
@@ -294,7 +293,7 @@ errout_with_errno:
 /****************************************************************************
  *
  * If CONFIG_SCHED_HAVE_PARENT is defined, then waitpid will use the SIGHCLD
- * signal.  It can also handle the pid == (pid_t)-1 arguement.  This is
+ * signal.  It can also handle the pid == (pid_t)-1 argument.  This is
  * slightly more spec-compliant.
  *
  * But then I have to be concerned about the fact that NuttX does not queue
@@ -322,12 +321,12 @@ pid_t waitpid(pid_t pid, int *stat_loc, int options)
 
   /* waitpid() is a cancellation point */
 
-  (void)enter_cancellation_point();
+  enter_cancellation_point();
 
   /* Create a signal set that contains only SIGCHLD */
 
-  (void)sigemptyset(&set);
-  (void)sigaddset(&set, SIGCHLD);
+  sigemptyset(&set);
+  sigaddset(&set, SIGCHLD);
 
   /* Disable pre-emption so that nothing changes while the loop executes */
 
@@ -445,7 +444,7 @@ pid_t waitpid(pid_t pid, int *stat_loc, int options)
 
               /* Discard the child entry and break out of the loop */
 
-              (void)group_removechild(rtcb->group, child->ch_pid);
+              group_removechild(rtcb->group, child->ch_pid);
               group_freechild(child);
               break;
             }
@@ -470,7 +469,7 @@ pid_t waitpid(pid_t pid, int *stat_loc, int options)
 
               /* Discard the child entry and break out of the loop */
 
-              (void)group_removechild(rtcb->group, pid);
+              group_removechild(rtcb->group, pid);
               group_freechild(child);
               break;
             }
@@ -551,7 +550,7 @@ pid_t waitpid(pid_t pid, int *stat_loc, int options)
 
               if (child != NULL)
                 {
-                  (void)group_removechild(rtcb->group, child->ch_pid);
+                  group_removechild(rtcb->group, child->ch_pid);
                   group_freechild(child);
                 }
             }

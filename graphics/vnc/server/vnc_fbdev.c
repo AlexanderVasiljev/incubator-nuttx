@@ -62,7 +62,6 @@
 #include <debug.h>
 
 #include <nuttx/kthread.h>
-#include <nuttx/semaphore.h>
 #include <nuttx/video/fb.h>
 #include <nuttx/video/vnc.h>
 
@@ -78,7 +77,7 @@
 
 struct vnc_fbinfo_s
 {
-  /* The publically visible frame buffer interface.  This must appear first
+  /* The publicly visible frame buffer interface.  This must appear first
    * so that struct vnc_fbinfo_s is cast compatible with struct fb_vtable_s.
    */
 
@@ -122,7 +121,7 @@ static int up_putcmap(FAR struct fb_vtable_s *vtable,
 static int up_getcursor(FAR struct fb_vtable_s *vtable,
                         FAR struct fb_cursorattrib_s *attrib);
 static int up_setcursor(FAR struct fb_vtable_s *vtable,
-                        FAR struct fb_setcursor_s *setttings);
+                        FAR struct fb_setcursor_s *settings);
 #endif
 
 /****************************************************************************
@@ -452,7 +451,7 @@ static int vnc_start_server(int display)
 
   /* Format the kernel thread arguments (ASCII.. yech) */
 
-  (void)itoa(display, str, 10);
+  itoa(display, str, 10);
   argv[0] = str;
   argv[1] = NULL;
 
@@ -486,14 +485,12 @@ static int vnc_start_server(int display)
 
 static inline int vnc_wait_start(int display)
 {
-  int ret = OK;
-
   /* Check if there has been a session allocated yet.  This is one of the
    * first things that the VNC server will do with the kernel thread is
    * started.  But we might be here before the thread has gotten that far.
    *
    * If it has been allocated, then wait until it is in the INIITIALIZED
-   * state.  The INITIAILIZED states indicates tht the session structure
+   * state.  The INITIAILIZED states indicates that the session structure
    * has been allocated and fully initialized.
    */
 
@@ -506,20 +503,10 @@ static inline int vnc_wait_start(int display)
        * conditions here, but I think none that are fatal.
        */
 
-      do
-        {
-          ret = nxsem_wait(&g_fbstartup[display].fbinit);
-
-          /* The only case that an error should occur here is if the wait
-           * was awakened by a signal.
-           */
-
-          DEBUGASSERT(ret == OK || ret == -EINTR);
-        }
-      while (ret == -EINTR);
+      nxsem_wait_uninterruptible(&g_fbstartup[display].fbinit);
     }
 
-  return ret;
+  return OK;
 }
 
 /****************************************************************************
@@ -564,20 +551,11 @@ static inline int vnc_wait_connect(int display)
        * conditions here, but I think none that are fatal.
        */
 
-      do
+      ret = nxsem_wait_uninterruptible(&g_fbstartup[display].fbconnect);
+      if (ret < 0)
         {
-          ret = nxsem_wait(&g_fbstartup[display].fbconnect);
-
-          /* The only case that an error should occur here is if the wait
-           * was awakened by a signal.
-           */
-
-          if (ret < 0 && ret != -EINTR)
-            {
-              return ret;
-            }
+          return ret;
         }
-      while (ret == -EINTR);
 
       /* We were awakened.  A result of -EBUSY means that the negotiation
        * is not complete.  Why would we be awakened in that case?  Some

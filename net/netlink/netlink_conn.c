@@ -90,23 +90,12 @@ static dq_queue_t g_active_netlink_connections;
 
 static void _netlink_semtake(FAR sem_t *sem)
 {
-  int ret;
-
-  /* Take the semaphore (perhaps waiting) */
-
-  while ((ret = net_lockedwait(sem)) < 0)
-    {
-      /* The only case that an error should occur here is if
-       * the wait was awakened by a signal.
-       */
-
-      DEBUGASSERT(ret == -EINTR || ret == -ECANCELED);
-    }
+  net_lockedwait_uninterruptible(sem);
 }
 
 static void _netlink_semgive(FAR sem_t *sem)
 {
-  (void)nxsem_post(sem);
+  nxsem_post(sem);
 }
 
 /****************************************************************************
@@ -125,25 +114,11 @@ static void _netlink_semgive(FAR sem_t *sem)
 
 static void netlink_response_available(FAR void *arg)
 {
-  /* The entire notifier entry is passed to us.  That is because we are
-   * responsible for disposing of the entry via kmm_free() when we are
-   * finished with it.
-   */
-
-  FAR struct work_notifier_entry_s *notifier =
-    (FAR struct work_notifier_entry_s *)arg;
-  FAR sem_t *waitsem;
-
-  DEBUGASSERT(notifier != NULL && notifier->info.qualifier != NULL);
-  waitsem = (FAR sem_t *)notifier->info.arg;
-
-  /* Free the notifier entry */
-
-  kmm_free(notifier);
+  DEBUGASSERT(arg != NULL);
 
   /* wakeup the waiter */
 
-  nxsem_post(waitsem);
+  _netlink_semgive(arg);
 }
 
 /****************************************************************************
@@ -526,7 +501,7 @@ int netlink_notify_response(FAR struct socket *psock)
         }
       else
         {
-          /* Wait for a reponse to be queued */
+          /* Wait for a response to be queued */
 
           _netlink_semtake(&waitsem);
         }

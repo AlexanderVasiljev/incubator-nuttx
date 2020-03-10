@@ -1,5 +1,5 @@
 /****************************************************************************
- * arch/xtensa/src/common/arm_sigdeliver.c
+ * arch/xtensa/src/common/xtensa_sigdeliver.c
  *
  *   Copyright (C) 2016, 2018-2019 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
@@ -147,9 +147,9 @@ void xtensa_sig_deliver(void)
    */
 
 #ifdef CONFIG_SMP
-  (void)enter_critical_section();
+  enter_critical_section();
 #else
-  (void)up_irq_save();
+  up_irq_save();
 #endif
 
   /* Restore the saved errno value */
@@ -182,7 +182,7 @@ void xtensa_sig_deliver(void)
   DEBUGASSERT(rtcb->irqcount == 1);
   while (rtcb->irqcount < saved_irqcount)
     {
-      (void)enter_critical_section();
+      enter_critical_section();
     }
 #endif
 
